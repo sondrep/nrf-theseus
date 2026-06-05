@@ -1,0 +1,54 @@
+# The west manifest file (west.yml) for the nRF Theseus.
+#
+# The per-workspace west configuration file, ncs/.west/config,
+# specifies the location of this manifest file like this:
+#
+#     [manifest]
+#     path = nrf
+#
+# See the west documentation for more information:
+#
+# https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/zephyr/guides/west/index.html
+
+manifest:
+  version: "0.13"
+
+  # "remotes" is a list of locations where git repositories are cloned
+  # and fetched from.
+  remotes:
+    # nRF Connect SDK GitHub organization.
+    # NCS repositories are hosted here.
+    - name: ncs
+      url-base: https://github.com/nrfconnect
+    - name: FreeRTOS
+      url-base: https://github.com/FreeRTOS
+    - name: nordicsemi
+      url-base: https://github.com/nordicsemi
+
+  # "projects" is a list of git repositories which make up the NCS
+  # source code.
+  #
+  # For 'userdata' fields in the projects area, please refer to:
+  # https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/dm_code_base.html
+  projects:
+    - name: nrfxlib
+      remote: ncs
+      repo-path: sdk-nrfxlib
+      path: nrfxlib
+      revision: e7b346ce24268dc69d08888e586e42a0162a22ea
+    - name: nrfx
+      remote: nordicsemi
+      repo-path: nrfx
+      path: nrfx
+      revision: 0883a272c34004697dd56dfa44f6e2d0f8705689
+    - name: FreeRTOS-Kernel
+      remote: FreeRTOS
+      repo-path: FreeRTOS-Kernel
+      path: FreeRTOS-Kernel
+      revision: 9b777ae5c5b8e9e456065a00294d1e5f5f9facf5
+
+
+
+  self:
+    path: nrf-theseus
+    west-commands: scripts/west-commands.yml
