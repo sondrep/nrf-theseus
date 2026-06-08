@@ -1,5 +1,5 @@
 /*
- * FreeRTOS V202212.00
+ * FreeRTOS V202411.00
  * Copyright (C) 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -46,12 +46,15 @@
 extern uint32_t SystemCoreClock;
 
 /* Cortex M33 port configuration. */
-#define configENABLE_MPU                                1
-#define configENABLE_FPU                                1
-#define configENABLE_TRUSTZONE                          1
+#define configENABLE_MPU                                0
+#define configENABLE_FPU                                0
+#define configENABLE_TRUSTZONE                          0
 
 /* This part has 16 MPU regions. */
 #define configTOTAL_MPU_REGIONS                         16
+
+/* Run FreeRTOS on the secure side and never jump to the non-secure side. */
+#define configRUN_FREERTOS_SECURE_ONLY                  1
 
 /* Constants related to the behaviour or the scheduler. */
 #define configUSE_PORT_OPTIMISED_TASK_SELECTION         0
@@ -70,7 +73,7 @@ extern uint32_t SystemCoreClock;
 
 /* Constants that build features in or out. */
 #define configUSE_MUTEXES                               1
-#define configUSE_TICKLESS_IDLE                         1
+#define configUSE_TICKLESS_IDLE                         0
 #define configUSE_APPLICATION_TASK_TAG                  0
 #define configUSE_NEWLIB_REENTRANT                      0
 #define configUSE_CO_ROUTINES                           0
@@ -169,9 +172,12 @@ extern uint32_t SystemCoreClock;
 #define configGENERATE_RUN_TIME_STATS                   0
 #define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()
 #define portGET_RUN_TIME_COUNTER_VALUE()                0
-#define configTICK_RATE_HZ                              ( ( TickType_t ) 100 )
+#define configTICK_RATE_HZ                              ( ( TickType_t ) 1000 )
 
 /* Enable static allocation. */
 #define configSUPPORT_STATIC_ALLOCATION                 1
+
+
+
 
 #endif /* FREERTOS_CONFIG_H */

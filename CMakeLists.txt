@@ -1,28 +1,29 @@
 cmake_minimum_required(VERSION 3.15)
-project(hello_world)
+
 
 set(FREERTOS_KERNEL_PATH "../FreeRTOS-Kernel")
 
 set(CMAKE_SYSTEM_NAME Generic)
-SET(CMAKE_C_COMPILER arm-none-eabi-gcc)
-SET(CMAKE_ASM_COMPILER arm-none-eabi-gcc)
-SET(CMAKE_AR arm-none-eabi-ar)
-SET(CMAKE_OBJCOPY arm-none-eabi-objcopy)
-SET(CMAKE_OBJDUMP arm-none-eabi-objdump)
-SET(SIZE arm-none-eabi-size)
-SET(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+set(CMAKE_SYSTEM_PROCESSOR arm)
+set(CMAKE_C_COMPILER arm-none-eabi-gcc)
+set(CMAKE_ASM_COMPILER arm-none-eabi-gcc)
+set(CMAKE_AR arm-none-eabi-ar)
+set(CMAKE_OBJCOPY arm-none-eabi-objcopy)
+set(CMAKE_OBJDUMP arm-none-eabi-objdump)
+set(SIZE arm-none-eabi-size)
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 
-SET(CMAKE_COMPILE_FILES_DIR ${CMAKE_SOURCE_DIR}/scripts)
-SET(COMMON_LINKER_SCRIPT ${CMAKE_COMPILE_FILES_DIR}/nrf_common.ld)
-SET(LINKER_SCRIPT ${CMAKE_COMPILE_FILES_DIR}/nrf52840_xxaa.ld)
+# Get linker script from nrfx
+set(MDK_DIR ${CMAKE_SOURCE_DIR}/../nrfx/bsp/stable/mdk/)
 
-add_link_options(-mcpu=cortex-m4 -mthumb -mthumb-interwork)
-add_link_options(-Wl,-gc-sections,--print-memory-usage,-Map=${PROJECT_BINARY_DIR}/${PROJECT_NAME}.map)
+project(hello_world LANGUAGES C ASM)
 
-add_compile_options(-mcpu=cortex-m4 -mthumb -mthumb-interwork)
-add_compile_options(-mfloat-abi=hard -mfpu=fpv4-sp-d16)
-add_link_options(-mfloat-abi=hard -mfpu=fpv4-sp-d16)
-add_link_options(-T ${LINKER_SCRIPT})
+set(EXECUTABLE_NAME ${PROJECT_NAME}.elf)
+set(CMAKE_SYSTEM_PROCESSOR arm)
+
+
+add_compile_options(-mthumb -mcpu=cortex-m33 -mfloat-abi=hard -mfpu=fpv5-sp-d16 -g3)
+#add_link_options(-T ${LINKER_SCRIPT})
 #add_compile_options(-march=armv6)
 
 # Add the freertos_config for FreeRTOS-Kernel
@@ -43,9 +44,15 @@ endif()
 set(FREERTOS_HEAP "4" CACHE STRING "" FORCE)
 
 # Select the native compile PORT
-set(FREERTOS_PORT "GCC_ARM_CM4F" CACHE STRING "" FORCE)
+set(FREERTOS_PORT "GCC_ARM_CM33_NONSECURE" CACHE STRING "" FORCE)
 
 set(C_INCLUDE_PATH ${CMAKE_CURRENT_LIST_DIR}/include)
+
+
+# Default libc is picolibc
+if (NOT DEFINED THESEUS_LIBC)
+    set(THESEUS_LIBC picolibc)
+endif()
 
 # Adding the FreeRTOS-Kernel subdirectory
 add_subdirectory(${FREERTOS_KERNEL_PATH} FreeRTOS-Kernel)
@@ -90,9 +97,23 @@ target_compile_options(freertos_kernel PRIVATE
     $<$<COMPILE_LANG_AND_ID:C,Clang>:-Wno-cast-align> )
 
 enable_language(ASM)
-add_executable(${PROJECT_NAME}.elf ../nrfx/bsp/stable/mdk/gcc_startup_nrf52840.S ${COMMON_LINKER_SCRIPT} ${LINKER_SCRIPT})
+add_executable(${EXECUTABLE_NAME} ${MDK_DIR}/system_nrf54l.c)
+
+add_compile_options(${THESEUS_CPU_FLAGS}
+        -Wall -Wextra -Wno-unused-parameter
+        -ffunction-sections -fdata-sections
+        -fno-common
+    )
+
+include(${CMAKE_SOURCE_DIR}/cmake/targets/${THESEUS_BUILD_TARGET}.cmake)
+
+include(${CMAKE_SOURCE_DIR}/cmake/libc/${THESEUS_LIBC}.cmake)
+
+target_compile_definitions(${EXECUTABLE_NAME} PRIVATE NRF_APPLICATION=1)
+target_include_directories(${EXECUTABLE_NAME} PRIVATE ../cmsis/CMSIS/Core/Include)
 add_subdirectory(samples)
 
-target_link_libraries(${PROJECT_NAME}.elf freertos_kernel freertos_config)
+target_link_options(${EXECUTABLE_NAME} PRIVATE -mthumb -mcpu=cortex-m33 -mfloat-abi=hard -mfpu=fpv5-sp-d16 -g3 -Wl,-gc-sections,--print-memory-usage,-Map=${PROJECT_BINARY_DIR}/${PROJECT_NAME}.map -lnosys -T ${LINKER_SCRIPT} -L ${MDK_DIR}/ --specs=nosys.specs)
+target_link_libraries(${EXECUTABLE_NAME} PUBLIC freertos_kernel freertos_config c)
 
 set_property(TARGET freertos_kernel PROPERTY C_STANDARD 90)

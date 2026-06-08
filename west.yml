@@ -24,6 +24,10 @@ manifest:
       url-base: https://github.com/FreeRTOS
     - name: nordicsemi
       url-base: https://github.com/nordicsemi
+    - name: picolibc
+      url-base: https://github.com/picolibc
+    - name: ARM-software
+      url-base: https://github.com/ARM-software
 
   # "projects" is a list of git repositories which make up the NCS
   # source code.
@@ -46,6 +50,15 @@ manifest:
       repo-path: FreeRTOS-Kernel
       path: FreeRTOS-Kernel
       revision: 9b777ae5c5b8e9e456065a00294d1e5f5f9facf5
+    - name: picolibc
+      remote: picolibc
+      repo-path: picolibc
+      path: picolibc
+      revision: f7edb0869e64b9d687f46961adeef7154921fe92
+    - name: cmsis
+      remote: ARM-software
+      repo-path: CMSIS_6
+      revision: 45dab712ad84f8cbbf2b7bfc089c19088507df6f
 
 
 
