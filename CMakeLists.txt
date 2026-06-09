@@ -1,30 +1,54 @@
 cmake_minimum_required(VERSION 3.15)
 
-
+# Set path variables
 set(FREERTOS_KERNEL_PATH "../FreeRTOS-Kernel")
-
-set(CMAKE_SYSTEM_NAME Generic)
-set(CMAKE_SYSTEM_PROCESSOR arm)
-set(CMAKE_C_COMPILER arm-none-eabi-gcc)
-set(CMAKE_ASM_COMPILER arm-none-eabi-gcc)
-set(CMAKE_AR arm-none-eabi-ar)
-set(CMAKE_OBJCOPY arm-none-eabi-objcopy)
-set(CMAKE_OBJDUMP arm-none-eabi-objdump)
-set(SIZE arm-none-eabi-size)
-set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
-
-# Get linker script from nrfx
 set(MDK_DIR ${CMAKE_SOURCE_DIR}/../nrfx/bsp/stable/mdk/)
+set(C_INCLUDE_PATH ${CMAKE_CURRENT_LIST_DIR}/include)
+
+set(CMAKE_BUILD_TYPE Debug)
+
+# Set the toolchain file before project() is called
+if(NOT CMAKE_TOOLCHAIN_FILE)
+    set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/cmake/toolchain/arm-none-eabi.cmake"
+        CACHE FILEPATH "Toolchain file" FORCE)
+endif()
 
 project(hello_world LANGUAGES C ASM)
 
 set(EXECUTABLE_NAME ${PROJECT_NAME}.elf)
-set(CMAKE_SYSTEM_PROCESSOR arm)
 
+enable_language(ASM)
+add_executable(${EXECUTABLE_NAME} ${MDK_DIR}/system_nrf54l.c)
 
-add_compile_options(-mthumb -mcpu=cortex-m33 -mfloat-abi=hard -mfpu=fpv5-sp-d16 -g3)
-#add_link_options(-T ${LINKER_SCRIPT})
-#add_compile_options(-march=armv6)
+# Error check for valid build target. Must add /cmake/targets/TARGET.cmake file for valid target.
+if (EXISTS ${CMAKE_SOURCE_DIR}/cmake/targets/${THESEUS_BUILD_TARGET}.cmake)
+    include(${CMAKE_SOURCE_DIR}/cmake/targets/${THESEUS_BUILD_TARGET}.cmake)
+else()
+    message(FATAL_ERROR "Invalid target: ${THESEUS_BUILD_TARGET} is not a valid build target.")
+endif()
+
+target_compile_options(${EXECUTABLE_NAME} PUBLIC ${THESEUS_CPU_FLAGS}
+        -Wall -Wextra -Wno-unused-parameter
+        -ffunction-sections -fdata-sections
+        -fno-common
+    )
+add_compile_options(${THESEUS_CPU_FLAGS})
+
+target_compile_definitions(${EXECUTABLE_NAME} PRIVATE NRF_APPLICATION=1)
+target_include_directories(${EXECUTABLE_NAME} PRIVATE ../cmsis/CMSIS/Core/Include)
+add_subdirectory(samples)
+
+# Default libc is picolibc
+if (NOT DEFINED THESEUS_LIBC)
+    set(THESEUS_LIBC picolibc)
+endif()
+
+# Error check for valid libc library.
+if(EXISTS ${CMAKE_SOURCE_DIR}/cmake/libc/${THESEUS_LIBC}.cmake)
+    include(${CMAKE_SOURCE_DIR}/cmake/libc/${THESEUS_LIBC}.cmake)
+else()
+    message(FATAL_ERROR "Invalid libc: ${THESEUS_LIBC} is not a valid C standard library.")
+endif()
 
 # Add the freertos_config for FreeRTOS-Kernel
 add_library(freertos_config INTERFACE)
@@ -33,6 +57,17 @@ target_include_directories(freertos_config
     INTERFACE
     "${CMAKE_CURRENT_LIST_DIR}/include"
 )
+
+# Add library
+add_subdirectory(lib)
+
+# Include nrfx
+target_include_directories(${EXECUTABLE_NAME} PRIVATE ../nrfx/drivers/include)
+target_include_directories(${EXECUTABLE_NAME} PRIVATE ../nrfx)
+target_include_directories(${EXECUTABLE_NAME} PRIVATE ../nrfx/bsp/stable/templates)
+target_include_directories(${EXECUTABLE_NAME} PRIVATE ../nrfx/bsp/stable)
+target_sources(${EXECUTABLE_NAME} PRIVATE ../nrfx/drivers/src/nrfx_gpiote.c)
+target_sources(${EXECUTABLE_NAME} PRIVATE ../nrfx/helpers/nrfx_flag32_allocator.c)
 
 if (DEFINED FREERTOS_SMP_EXAMPLE AND FREERTOS_SMP_EXAMPLE STREQUAL "1")
     message(STATUS "Build FreeRTOS SMP example")
@@ -44,15 +79,7 @@ endif()
 set(FREERTOS_HEAP "4" CACHE STRING "" FORCE)
 
 # Select the native compile PORT
-set(FREERTOS_PORT "GCC_ARM_CM33_NONSECURE" CACHE STRING "" FORCE)
-
-set(C_INCLUDE_PATH ${CMAKE_CURRENT_LIST_DIR}/include)
-
-
-# Default libc is picolibc
-if (NOT DEFINED THESEUS_LIBC)
-    set(THESEUS_LIBC picolibc)
-endif()
+set(FREERTOS_PORT "GCC_ARM_CM33_NTZ_NONSECURE" CACHE STRING "" FORCE)
 
 # Adding the FreeRTOS-Kernel subdirectory
 add_subdirectory(${FREERTOS_KERNEL_PATH} FreeRTOS-Kernel)
@@ -96,22 +123,6 @@ target_compile_options(freertos_kernel PRIVATE
     $<$<COMPILE_LANG_AND_ID:C,Clang>:-Wno-covered-switch-default>
     $<$<COMPILE_LANG_AND_ID:C,Clang>:-Wno-cast-align> )
 
-enable_language(ASM)
-add_executable(${EXECUTABLE_NAME} ${MDK_DIR}/system_nrf54l.c)
-
-add_compile_options(${THESEUS_CPU_FLAGS}
-        -Wall -Wextra -Wno-unused-parameter
-        -ffunction-sections -fdata-sections
-        -fno-common
-    )
-
-include(${CMAKE_SOURCE_DIR}/cmake/targets/${THESEUS_BUILD_TARGET}.cmake)
-
-include(${CMAKE_SOURCE_DIR}/cmake/libc/${THESEUS_LIBC}.cmake)
-
-target_compile_definitions(${EXECUTABLE_NAME} PRIVATE NRF_APPLICATION=1)
-target_include_directories(${EXECUTABLE_NAME} PRIVATE ../cmsis/CMSIS/Core/Include)
-add_subdirectory(samples)
 
 target_link_options(${EXECUTABLE_NAME} PRIVATE -mthumb -mcpu=cortex-m33 -mfloat-abi=hard -mfpu=fpv5-sp-d16 -g3 -Wl,-gc-sections,--print-memory-usage,-Map=${PROJECT_BINARY_DIR}/${PROJECT_NAME}.map -lnosys -T ${LINKER_SCRIPT} -L ${MDK_DIR}/ --specs=nosys.specs)
 target_link_libraries(${EXECUTABLE_NAME} PUBLIC freertos_kernel freertos_config c)

@@ -54,7 +54,7 @@ extern uint32_t SystemCoreClock;
 #define configTOTAL_MPU_REGIONS                         16
 
 /* Run FreeRTOS on the secure side and never jump to the non-secure side. */
-#define configRUN_FREERTOS_SECURE_ONLY                  1
+#define configRUN_FREERTOS_SECURE_ONLY                  0
 
 /* Constants related to the behaviour or the scheduler. */
 #define configUSE_PORT_OPTIMISED_TASK_SELECTION         0
@@ -66,7 +66,7 @@ extern uint32_t SystemCoreClock;
 
 /* Constants that describe the hardware and memory usage. */
 #define configCPU_CLOCK_HZ                              SystemCoreClock
-#define configMINIMAL_STACK_SIZE                        ( ( uint16_t ) 256 )
+#define configMINIMAL_STACK_SIZE                        ( ( uint16_t ) 255 )
 #define configMINIMAL_SECURE_STACK_SIZE                 ( 1024 )
 #define configMAX_TASK_NAME_LEN                         ( 12 )
 #define configTOTAL_HEAP_SIZE                           ( ( size_t ) ( 50 * 1024 ) )
@@ -89,7 +89,7 @@ extern uint32_t SystemCoreClock;
 #define configUSE_MALLOC_FAILED_HOOK                    0
 
 /* Constants provided for debugging and optimisation assistance. */
-#define configCHECK_FOR_STACK_OVERFLOW                  2
+#define configCHECK_FOR_STACK_OVERFLOW                  0
 #define configASSERT( x )                               if( ( x ) == 0 ) { taskDISABLE_INTERRUPTS(); for( ;; ); }
 #define configQUEUE_REGISTRY_SIZE                       0
 
@@ -176,6 +176,8 @@ extern uint32_t SystemCoreClock;
 
 /* Enable static allocation. */
 #define configSUPPORT_STATIC_ALLOCATION                 1
+#define configKERNEL_PROVIDED_STATIC_MEMORY 1
+#define GCC_ARM_CM33_NTZ_NONSECURE 1
 
 
 
