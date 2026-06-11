@@ -1,5 +1,5 @@
 # nrf-theseus
-Base repository for the nRF Connect SDK Bare Metal option.
+Base repository for the nRF Theseus project.
 
 ## Initialize workspace
 
@@ -16,3 +16,19 @@ To initialize the workspace using the command line, do the following:
    ```shell
    west update
    ```
+
+## Building & Flashing a Sample
+
+To build a project you can run:
+
+```shell
+west build -s SAMPLE_NAME -b TARGET_BOARD
+```
+This builds a sample from the `samples/` directory, where you need to replace `SAMPLE_NAME` with the directory name of the sample you want to build.
+The target boards can be found in `cmake/targets/`, where you need to replace `TARGET_BOARD` with the name of one of the targets found in this directory (without `.cmake`).
+
+After a sample is built, you can run:
+```shell
+west flash
+```
+to flash the sample you just built.
