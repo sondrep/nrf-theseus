@@ -510,22 +510,6 @@ static void vPortEnableVFP( void )
 
 static uint8_t grtc_channel;
 
-void GRTC_1_IRQHandler(void){
-    //nrfx_grtc_irq_handler();
-    BaseType_t ret;
-    ret = xTaskIncrementTick();
-    if (ret != pdFALSE){
-        /* A context switch is required.  Context switching is performed in
-        the PendSV interrupt.  Pend the PendSV interrupt. */
-        SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
-        __SEV();
-    }
-}
-nrfx_gpiote_t gpiote = NRFX_GPIOTE_INSTANCE(NRF_GPIOTE20);
-void clock_timeout(int32_t id, uint64_t cc_value, void * p_context){
-    nrfx_gpiote_out_toggle(&gpiote, NRF_GPIO_PIN_MAP(2, 9));
-}
-
 static void increment_tick_cb(int32_t id, uint64_t cc_value, void * p_context){
     BaseType_t ret;
     ret = xTaskIncrementTick();
@@ -535,6 +519,7 @@ static void increment_tick_cb(int32_t id, uint64_t cc_value, void * p_context){
         SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
         __SEV();
     }
+    nrfx_grtc_syscounter_cc_rel_set(grtc_channel, 10000, NRFX_GRTC_CC_RELATIVE_COMPARE);
 }
 /*
  * Setup the RTC time to generate the tick interrupts at the required
@@ -542,20 +527,7 @@ static void increment_tick_cb(int32_t id, uint64_t cc_value, void * p_context){
  */
 void vPortSetupTimerInterrupt( void )
 {
-  nrfx_gpiote_init(&gpiote, 3);
-
-  nrfx_gpiote_output_config_t pin_config = {
-    .drive = NRF_GPIO_PIN_S0S1,
-    .input_connect = NRF_GPIO_PIN_INPUT_DISCONNECT,
-    .pull = NRF_GPIO_PIN_NOPULL
-  };
-
-  nrfx_gpiote_output_configure(&gpiote, NRF_GPIO_PIN_MAP(2, 9), &pin_config, NULL);
-
-
     int ret = 0;
-    /* Request LF clock */
-    // nrf_drv_clock_lfclk_request(NULL);
 
 
     nrfx_grtc_clock_source_set(NRF_GRTC_CLKSEL_LFXO);
@@ -580,22 +552,11 @@ void vPortSetupTimerInterrupt( void )
     if(!ret){
         return;
     }
-
-
-
     nrfx_grtc_action_perform(NRFX_GRTC_ACTION_CLEAR);
     nrfx_grtc_action_perform(NRFX_GRTC_ACTION_START);
 
-    nrfx_grtc_syscounter_cc_interval_set(grtc_channel, 0, 1000);
-    nrfx_grtc_channel_callback_set(grtc_channel, clock_timeout, NULL);
-
-    //nrf_grtc_int_enable   (portNRF_GRTC_REG, NRF_GRTC_INT_COMPARE4_MASK);
-    //nrf_grtc_task_trigger (portNRF_GRTC_REG, NRF_GRTC_TASK_CLEAR);
-    //nrf_grtc_task_trigger (portNRF_GRTC_REG, NRF_GRTC_TASK_START);
-    //nrf_grtc_event_enable(portNRF_GRTC_REG, GRTC_EVTEN_OVRFLW_Msk);
-
-    //NVIC_SetPriority(GRTC_1_IRQn, configKERNEL_INTERRUPT_PRIORITY);
-    //NVIC_EnableIRQ(GRTC_1_IRQn);
+    nrfx_grtc_channel_callback_set(grtc_channel, increment_tick_cb, NULL);
+    nrfx_grtc_syscounter_cc_rel_set(grtc_channel, 10, NRFX_GRTC_CC_RELATIVE_COMPARE);
 }
 
 void vPortYield(void){

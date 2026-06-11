@@ -6,7 +6,7 @@
 
 
 void TaskBlink(void *arg){
-  const TickType_t xFrequency = 10;
+  const TickType_t xPeriod = 10;
   TickType_t xLastWakeTime = xTaskGetTickCount();
 
   nrfx_gpiote_t gpiote = NRFX_GPIOTE_INSTANCE(NRF_GPIOTE20);
@@ -22,7 +22,7 @@ void TaskBlink(void *arg){
 
   for(;;){
     nrfx_gpiote_out_toggle(&gpiote, NRF_GPIO_PIN_MAP(2, 9));
-    xTaskDelayUntil(&xLastWakeTime, xFrequency);
+    xTaskDelayUntil(&xLastWakeTime, xPeriod);
   }
 
 }
@@ -47,13 +47,13 @@ int main(void){
   TaskHandle_t xHandle = NULL;
   BaseType_t ret;
 
- // ret = xTaskCreate(TaskBlink, "blink", 8192, NULL, tskIDLE_PRIORITY, &xHandle);
+  ret = xTaskCreate(TaskBlink, "blink", 8192, NULL, tskIDLE_PRIORITY, &xHandle);
 
   vTaskStartScheduler();
 
-  //if(ret != pdPASS){
-  //    return -1;
-  //}
+  if(ret != pdPASS){
+      return -1;
+  }
   for(;;);
   return 0;
 }
