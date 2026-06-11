@@ -1,3 +1,4 @@
 .vscode
+.west
 build
 __pycache__
