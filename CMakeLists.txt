@@ -13,7 +13,7 @@ if(NOT CMAKE_TOOLCHAIN_FILE)
         CACHE FILEPATH "Toolchain file" FORCE)
 endif()
 
-project(hello_world LANGUAGES C ASM)
+project(app LANGUAGES C ASM)
 
 set(EXECUTABLE_NAME ${PROJECT_NAME}.elf)
 
