@@ -1,14 +1,13 @@
-# The west manifest file (west.yml) for the nRF Theseus.
+# The west manifest file (west.yml) for nRF Theseus.
 #
-# The per-workspace west configuration file, ncs/.west/config,
-# specifies the location of this manifest file like this:
+# The per-workspace west configuration file, .west/config, specifies the
+# location of this manifest file like this:
 #
 #     [manifest]
-#     path = nrf
+#     path = nrf-theseus
 #
 # See the west documentation for more information:
-#
-# https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/zephyr/guides/west/index.html
+# https://docs.zephyrproject.org/latest/develop/west/manifest.html
 
 manifest:
   version: "0.13"
@@ -16,51 +15,54 @@ manifest:
   # "remotes" is a list of locations where git repositories are cloned
   # and fetched from.
   remotes:
-    # nRF Connect SDK GitHub organization.
-    # NCS repositories are hosted here.
     - name: ncs
       url-base: https://github.com/nrfconnect
     - name: FreeRTOS
       url-base: https://github.com/FreeRTOS
     - name: nordicsemi
-      url-base: https://github.com/nordicsemi
+      url-base: https://github.com/NordicSemiconductor
     - name: picolibc
       url-base: https://github.com/picolibc
     - name: ARM-software
       url-base: https://github.com/ARM-software
 
-  # "projects" is a list of git repositories which make up the NCS
-  # source code.
-  #
-  # For 'userdata' fields in the projects area, please refer to:
-  # https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/dm_code_base.html
+  # Projects pull from this remote unless they override it.
+  defaults:
+    remote: nordicsemi
+
+  # "projects" is a list of git repositories that make up the source tree.
+  # Keep entries sorted alphabetically by name for easy diffing.
   projects:
-    - name: nrfxlib
-      remote: ncs
-      repo-path: sdk-nrfxlib
-      path: nrfxlib
-      revision: e7b346ce24268dc69d08888e586e42a0162a22ea
-    - name: nrfx
-      remote: nordicsemi
-      repo-path: nrfx
-      path: nrfx
-      revision: 0883a272c34004697dd56dfa44f6e2d0f8705689
+    - name: cmsis
+      remote: ARM-software
+      repo-path: CMSIS_6
+      path: cmsis
+      revision: v6.1.0
+
     - name: FreeRTOS-Kernel
       remote: FreeRTOS
       repo-path: FreeRTOS-Kernel
       path: FreeRTOS-Kernel
-      revision: 9b777ae5c5b8e9e456065a00294d1e5f5f9facf5
+      revision: V11.1.0
+
+    - name: nrfx
+      remote: nordicsemi
+      repo-path: nrfx
+      path: nrfx
+      revision: v3.6.0
+
+    - name: nrfxlib
+      remote: ncs
+      repo-path: sdk-nrfxlib
+      path: nrfxlib
+      # NCS fork: no clean upstream tag, pinned to a known-good commit.
+      revision: e7b346ce24268dc69d08888e586e42a0162a22ea
+
     - name: picolibc
       remote: picolibc
       repo-path: picolibc
       path: picolibc
-      revision: f7edb0869e64b9d687f46961adeef7154921fe92
-    - name: cmsis
-      remote: ARM-software
-      repo-path: CMSIS_6
-      revision: 45dab712ad84f8cbbf2b7bfc089c19088507df6f
-
-
+      revision: "1.8.6"
 
   self:
     path: nrf-theseus
