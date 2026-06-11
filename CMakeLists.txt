@@ -63,11 +63,17 @@ add_subdirectory(lib)
 
 # Include nrfx
 target_include_directories(${EXECUTABLE_NAME} PRIVATE ../nrfx/drivers/include)
+target_include_directories(${EXECUTABLE_NAME} PRIVATE ../nrfx/drivers)
 target_include_directories(${EXECUTABLE_NAME} PRIVATE ../nrfx)
+target_include_directories(${EXECUTABLE_NAME} PRIVATE ../nrfx/hal)
 target_include_directories(${EXECUTABLE_NAME} PRIVATE ../nrfx/bsp/stable/templates)
 target_include_directories(${EXECUTABLE_NAME} PRIVATE ../nrfx/bsp/stable)
-target_sources(${EXECUTABLE_NAME} PRIVATE ../nrfx/drivers/src/nrfx_gpiote.c)
+target_include_directories(${EXECUTABLE_NAME} PRIVATE ../nrfx/bsp/stable/mdk)
+target_sources(${EXECUTABLE_NAME} PRIVATE ../nrfx/drivers/src/nrfx_gpiote.c ../nrfx/drivers/src/nrfx_grtc.c)
 target_sources(${EXECUTABLE_NAME} PRIVATE ../nrfx/helpers/nrfx_flag32_allocator.c)
+target_sources(${EXECUTABLE_NAME} PRIVATE ../nrfx/drivers/src/nrfx_grtc.c)
+
+target_include_directories(${EXECUTABLE_NAME} PRIVATE ../cmsis/CMSIS/Core/Include)
 
 if (DEFINED FREERTOS_SMP_EXAMPLE AND FREERTOS_SMP_EXAMPLE STREQUAL "1")
     message(STATUS "Build FreeRTOS SMP example")
@@ -79,7 +85,7 @@ endif()
 set(FREERTOS_HEAP "4" CACHE STRING "" FORCE)
 
 # Select the native compile PORT
-set(FREERTOS_PORT "GCC_ARM_CM33_NTZ_NONSECURE" CACHE STRING "" FORCE)
+set(FREERTOS_PORT "GCC_ARM_CM33_SECURE" CACHE STRING "" FORCE)
 
 # Adding the FreeRTOS-Kernel subdirectory
 add_subdirectory(${FREERTOS_KERNEL_PATH} FreeRTOS-Kernel)

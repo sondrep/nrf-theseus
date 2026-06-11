@@ -37,6 +37,7 @@
 
 #include <nrfx_grtc.h>
 #include <nrfx_clock.h>
+#include <nrfx_errors.h>
 /* MPU includes. */
 #include "mpu_wrappers.h"
 #include "mpu_syscall_numbers.h"
@@ -790,9 +791,7 @@ static nrfx_grtc_channel_t system_clock_channel_data = {
 static uint64_t last_count; /* Time (SYSCOUNTER value) @last sys_clock_announce() */
 static inline uint64_t counter(void)
 {
-	uint64_t now;
-	nrfx_grtc_syscounter_get(&now);
-	return now;
+	return nrfx_grtc_syscounter_get();
 }
 static inline uint64_t counter_sub(uint64_t a, uint64_t b)
 {
@@ -857,7 +856,7 @@ static void system_timeout_set_relative(uint64_t value)
 }
 static int sys_clock_driver_init(void)
 {
-  nrfx_err_t err_code;
+  int err_code;
 
   nrfx_grtc_clock_source_set(NRF_GRTC_CLKSEL_LFXO);
 

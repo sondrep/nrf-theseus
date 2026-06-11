@@ -17,20 +17,20 @@
  */
 
 /* Type definitions. */
-#define portCHAR                 char
-#define portFLOAT                float
-#define portDOUBLE               double
-#define portLONG                 long
-#define portSHORT                int
-#define portSTACK_TYPE           uint8_t
-#define portBASE_TYPE            char
+#define portCHAR        char
+#define portFLOAT       float
+#define portDOUBLE      double
+#define portLONG        long
+#define portSHORT       short
+#define portSTACK_TYPE  uint32_t
+#define portBASE_TYPE   long
 
 #define portSTACK_GROWTH         ( -1 )
 #define portBYTE_ALIGNMENT       4
 #define portPOINTER_SIZE_TYPE    size_t
-typedef portSTACK_TYPE   StackType_t;
-typedef signed char      BaseType_t;
-typedef unsigned char    UBaseType_t;
+typedef portSTACK_TYPE StackType_t;
+typedef long BaseType_t;
+typedef uint32_t UBaseType_t; /* to provide compatibility with CMSIS */
 
 #if ( configTICK_TYPE_WIDTH_IN_BITS == TICK_TYPE_WIDTH_16_BITS )
     typedef uint16_t     TickType_t;

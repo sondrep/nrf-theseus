@@ -12,15 +12,7 @@ int main(void){
     .pull = NRF_GPIO_PIN_NOPULL
   };
 
-  uint8_t out_channel_primary;
-  nrfx_gpiote_task_config_t task_config =
-    {
-        .task_ch = out_channel_primary,
-        .polarity = NRF_GPIOTE_POLARITY_TOGGLE,
-        .init_val = NRF_GPIOTE_INITIAL_VALUE_HIGH,
-    };
-  nrfx_gpiote_channel_alloc(&gpiote, &out_channel_primary);
-  nrfx_gpiote_output_configure(&gpiote, NRF_GPIO_PIN_MAP(2, 9), &pin_config, &task_config);
+  nrfx_gpiote_output_configure(&gpiote, NRF_GPIO_PIN_MAP(2, 9), &pin_config, NULL);
 
   nrfx_gpiote_out_set(&gpiote, NRF_GPIO_PIN_MAP(2, 9));
   for(;;);

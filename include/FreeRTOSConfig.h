@@ -47,14 +47,14 @@ extern uint32_t SystemCoreClock;
 
 /* Cortex M33 port configuration. */
 #define configENABLE_MPU                                0
-#define configENABLE_FPU                                0
+#define configENABLE_FPU                                1
 #define configENABLE_TRUSTZONE                          0
 
 /* This part has 16 MPU regions. */
 #define configTOTAL_MPU_REGIONS                         16
 
 /* Run FreeRTOS on the secure side and never jump to the non-secure side. */
-#define configRUN_FREERTOS_SECURE_ONLY                  0
+#define configRUN_FREERTOS_SECURE_ONLY                  1
 
 /* Constants related to the behaviour or the scheduler. */
 #define configUSE_PORT_OPTIMISED_TASK_SELECTION         0
@@ -175,9 +175,10 @@ extern uint32_t SystemCoreClock;
 #define configTICK_RATE_HZ                              ( ( TickType_t ) 1000 )
 
 /* Enable static allocation. */
-#define configSUPPORT_STATIC_ALLOCATION                 1
+/* #define configSUPPORT_STATIC_ALLOCATION                 1 */
 #define configKERNEL_PROVIDED_STATIC_MEMORY 1
-#define GCC_ARM_CM33_NTZ_NONSECURE 1
+#define GCC_ARM_CM33_SECURE 1
+
 
 
 

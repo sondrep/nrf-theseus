@@ -1,1 +1,1 @@
-target_sources(${EXECUTABLE_NAME} PRIVATE nrfx_glue.c)
+target_sources(${EXECUTABLE_NAME} PRIVATE nrfx_glue.c port2.c)
