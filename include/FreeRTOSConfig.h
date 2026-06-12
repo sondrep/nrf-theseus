@@ -179,6 +179,9 @@ extern uint32_t SystemCoreClock;
 #define configKERNEL_PROVIDED_STATIC_MEMORY 1
 #define GCC_ARM_CM33_SECURE 1
 
+#define configUSE_MUTEXES                               1
+#define configSUPPORT_DYNAMIC_ALLOCATION                1
+
 
 
 
