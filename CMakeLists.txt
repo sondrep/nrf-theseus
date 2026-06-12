@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 
 # Set path variables
 set(FREERTOS_KERNEL_PATH "../FreeRTOS-Kernel")
+set(NIMBLE_PATH "dummy/nimble/repos/apache-mynewt-nimble")
 set(MDK_DIR ${CMAKE_SOURCE_DIR}/../nrfx/bsp/stable/mdk/)
 set(C_INCLUDE_PATH ${CMAKE_CURRENT_LIST_DIR}/include)
 
@@ -90,6 +91,76 @@ set(FREERTOS_PORT "GCC_ARM_CM33_SECURE" CACHE STRING "" FORCE)
 # Adding the FreeRTOS-Kernel subdirectory
 add_subdirectory(${FREERTOS_KERNEL_PATH} FreeRTOS-Kernel)
 
+# Nimble
+
+file(GLOB_RECURSE NIMBLE_SOURCES "${NIMBLE_PATH}/nimble/**/*.c"
+ "${NIMBLE_PATH}/porting/npl/freertos/**/*.c"
+ "${NIMBLE_PATH}/porting/nimble/src/os_mbuf.c"
+ "${NIMBLE_PATH}/porting/nimble/src/endian.c"
+ "${NIMBLE_PATH}/porting/nimble/src/os_mempool.c"
+ "${NIMBLE_PATH}/porting/nimble/src/os_msys.c"
+ "${NIMBLE_PATH}/porting/nimble/src/mem.c"
+ )
+# Exclude test files from build
+list(FILTER NIMBLE_SOURCES EXCLUDE REGEX "${NIMBLE_PATH}/nimble/controller/.*/.+\\.c")
+list(FILTER NIMBLE_SOURCES EXCLUDE REGEX "${NIMBLE_PATH}/nimble/drivers/.+\\.c")
+list(FILTER NIMBLE_SOURCES EXCLUDE REGEX "${NIMBLE_PATH}/nimble/host/audio/.+\\.c")
+list(FILTER NIMBLE_SOURCES EXCLUDE REGEX "${NIMBLE_PATH}/nimble/host/mesh/.+\\.c")
+list(FILTER NIMBLE_SOURCES EXCLUDE REGEX "${NIMBLE_PATH}/nimble/host/test/.+\\.c")
+list(FILTER NIMBLE_SOURCES EXCLUDE REGEX "${NIMBLE_PATH}/nimble/transport/.+\\.c")
+list(APPEND NIMBLE_SOURCES "${NIMBLE_PATH}/nimble/transport/src/transport.c")
+list(FILTER NIMBLE_SOURCES EXCLUDE REGEX "${NIMBLE_PATH}/apps/.+\\.c")
+list(FILTER NIMBLE_SOURCES EXCLUDE REGEX "${NIMBLE_PATH}/babblesim/.+\\.c")
+#add_library(${EXECUTABLE_NAME} ${NIMBLE_SOURCES})
+target_include_directories(${EXECUTABLE_NAME} PRIVATE
+dummy/nimble/bin/targets/nrf52/generated/include
+${NIMBLE_PATH}/porting/nimble/include
+${NIMBLE_PATH}/include
+${NIMBLE_PATH}/nimble/include
+${NIMBLE_PATH}/porting/npl/freertos/include
+${NIMBLE_PATH}/nimble/transport/include
+${NIMBLE_PATH}/nimble/controller/include
+${NIMBLE_PATH}/nimble/drivers/nrf5x/include
+${NIMBLE_PATH}/ext/tinycrypt/include
+${NIMBLE_PATH}/nimble/host/include
+${NIMBLE_PATH}/nimble/host/services/ans/include
+${NIMBLE_PATH}/nimble/host/services/bas/include
+${NIMBLE_PATH}/nimble/host/services/bleuart/include
+dummy/nimble/repos/apache-mynewt-core/sys/console/stub/include
+#dummy/nimble/repos/apache-mynewt-core/sys/log/stub/include
+#dummy/nimble/repos/apache-mynewt-core/kernel/os/include
+${NIMBLE_PATH}/nimble/host/services/dis/include
+${NIMBLE_PATH}/nimble/host/services/gap/include
+${NIMBLE_PATH}/nimble/host/services/gatt/include
+${NIMBLE_PATH}/nimble/host/services/ias/include
+${NIMBLE_PATH}/nimble/host/services/ipss/include
+${NIMBLE_PATH}/nimble/host/services/lls/include
+${NIMBLE_PATH}/nimble/host/services/tps/include
+${NIMBLE_PATH}/nimble/host/store/config/include
+${NIMBLE_PATH}/nimble/host/store/ram/include
+${NIMBLE_PATH}/nimble/host/util/include
+${NIMBLE_PATH}/nimble/transport/common/hci_h4/include
+)
+target_compile_definitions(${EXECUTABLE_NAME} PRIVATE NIMBLE_NPL_OS_EXTRA_INCLUDE="nrf.h")
+#target_include_directories(nimble PRIVATE )
+target_sources(${EXECUTABLE_NAME} PRIVATE ${NIMBLE_SOURCES})
+
+# tinycrypt
+
+set(TINYCRYPT_PATH ../tinycrypt)
+file(GLOB_RECURSE TINYCRYPT_SOURCES "${TINYCRYPT_PATH}/lib/source/*.c")
+add_library(tinycrypt ${TINYCRYPT_SOURCES})
+target_include_directories(tinycrypt PUBLIC ${TINYCRYPT_PATH}/lib/include) # Public to allow main executable to use the library
+
+
+# SoftDevice
+
+target_include_directories(${EXECUTABLE_NAME} PRIVATE ../nrfxlib/softdevice_controller/include)
+
+# MPSL
+
+target_include_directories(${EXECUTABLE_NAME} PRIVATE ../nrfxlib/mpsl/include)
+
 ########################################################################
 # Overall Compile Options
 # Note the compile option strategy is to error on everything and then
@@ -131,6 +202,10 @@ target_compile_options(freertos_kernel PRIVATE
 
 
 target_link_options(${EXECUTABLE_NAME} PRIVATE -mthumb -mcpu=cortex-m33 -mfloat-abi=hard -mfpu=fpv5-sp-d16 -g3 -Wl,-gc-sections,--print-memory-usage,-Map=${PROJECT_BINARY_DIR}/${PROJECT_NAME}.map -lnosys -T ${LINKER_SCRIPT} -L ${MDK_DIR}/ --specs=nosys.specs)
-target_link_libraries(${EXECUTABLE_NAME} PUBLIC freertos_kernel freertos_config c)
+target_link_libraries(${EXECUTABLE_NAME} PUBLIC freertos_kernel freertos_config c tinycrypt
+${CMAKE_CURRENT_SOURCE_DIR}/../nrfxlib/softdevice_controller/lib/nrf54l/hard-float/libsoftdevice_controller_multirole.a
+${CMAKE_CURRENT_SOURCE_DIR}/../nrfxlib/mpsl/lib/nrf54l/hard-float/libmpsl.a
+${CMAKE_CURRENT_SOURCE_DIR}/../nrfxlib/mpsl/fem/common/lib/nrf54l/hard-float/libmpsl_fem_common.a
+)
 
 set_property(TARGET freertos_kernel PROPERTY C_STANDARD 90)

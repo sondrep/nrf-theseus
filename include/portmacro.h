@@ -76,6 +76,9 @@ typedef uint32_t UBaseType_t; /* to provide compatibility with CMSIS */
 /* Enable the interrupts */
 #define portENABLE_INTERRUPTS()     do {} while( 0 )
 
+extern void vPortEnterCritical( void );
+extern void vPortExitCritical( void );
+
 #if ( configNUMBER_OF_CORES == 1 )
 /* preserve current interrupt state and then disable interrupts */
     #define portENTER_CRITICAL()    do {} while( 0 )
@@ -103,6 +106,9 @@ typedef uint32_t UBaseType_t; /* to provide compatibility with CMSIS */
 
 extern void vPortYield( void );
 #define portYIELD()                                           vPortYield()
+
+#define portEND_SWITCHING_ISR( xSwitchRequired ) if ( (xSwitchRequired) != pdFALSE ) portYIELD()
+#define portYIELD_FROM_ISR( x ) portEND_SWITCHING_ISR( x )
 
 /* Task function macros as described on the FreeRTOS.org WEB site. */
 #define portTASK_FUNCTION_PROTO( vFunction, pvParameters )    void vFunction( void * pvParameters ) __attribute__( ( noreturn ) )

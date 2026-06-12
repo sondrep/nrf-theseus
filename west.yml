@@ -25,6 +25,10 @@ manifest:
       url-base: https://github.com/picolibc
     - name: ARM-software
       url-base: https://github.com/ARM-software
+    - name: apache
+      url-base: https://github.com/apache
+    - name: intel
+      url-base: https://github.com/intel
 
   # Projects pull from this remote unless they override it.
   defaults:
@@ -49,7 +53,7 @@ manifest:
       remote: nordicsemi
       repo-path: nrfx
       path: nrfx
-      revision: v3.6.0
+      revision: v4.3.0
 
     - name: nrfxlib
       remote: ncs
@@ -63,6 +67,23 @@ manifest:
       repo-path: picolibc
       path: picolibc
       revision: "1.8.6"
+    - name: nimble
+      remote: apache
+      repo-path: mynewt-nimble
+      path: nrf-theseus/dummy/nimble/repos/apache-mynewt-nimble
+      revision: nimble_1_9_0_tag
+    - name: newt
+      remote: apache
+      repo-path: mynewt-newt
+      path: nrf-theseus/dummy/nimble/repos/apache-mynewt-newt
+      revision: mynewt_1_14_0_tag
+    - name: tinycrypt
+      remote: intel
+      repo-path: tinycrypt
+      path: tinycrypt
+      revision: v0.2.8
+
+
 
   self:
     path: nrf-theseus

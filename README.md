@@ -32,3 +32,12 @@ After a sample is built, you can run:
 west flash
 ```
 to flash the sample you just built.
+
+## Nimble
+```sudo apt install golang-go
+cd repos/apache-mynewt-newt
+./build.sh
+cd -
+newt upgrade --shallow=1
+repos/apache-mynewt-newt/newt/newt build nrf54
+```
