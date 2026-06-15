@@ -25,4 +25,3 @@ pkg.deps:
 
 $import:
     - "@apache-mynewt-nimble/nimble/transport/syscfg.monitor.yml"
-    - "@apache-mynewt-nimble/nimble/transport/syscfg.defunct.yml"
