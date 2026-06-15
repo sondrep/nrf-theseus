@@ -5,6 +5,7 @@ set(FREERTOS_KERNEL_PATH "../FreeRTOS-Kernel")
 set(NIMBLE_PATH "dummy/nimble/repos/apache-mynewt-nimble")
 set(MDK_DIR ${CMAKE_SOURCE_DIR}/../nrfx/bsp/stable/mdk/)
 set(C_INCLUDE_PATH ${CMAKE_CURRENT_LIST_DIR}/include)
+set(_HAVE_PICOLIBC_TLS_API 1)
 
 set(CMAKE_BUILD_TYPE Debug)
 
@@ -70,9 +71,37 @@ target_include_directories(${EXECUTABLE_NAME} PRIVATE ../nrfx/hal)
 target_include_directories(${EXECUTABLE_NAME} PRIVATE ../nrfx/bsp/stable/templates)
 target_include_directories(${EXECUTABLE_NAME} PRIVATE ../nrfx/bsp/stable)
 target_include_directories(${EXECUTABLE_NAME} PRIVATE ../nrfx/bsp/stable/mdk)
-target_sources(${EXECUTABLE_NAME} PRIVATE ../nrfx/drivers/src/nrfx_gpiote.c ../nrfx/drivers/src/nrfx_grtc.c)
+file(GLOB_RECURSE NRFX_SOURCES "../nrfx/drivers/src/*.c")
+#target_sources(${EXECUTABLE_NAME} PRIVATE ../nrfx/drivers/src/nrfx_gpiote.c ../nrfx/drivers/src/nrfx_grtc.c)
 target_sources(${EXECUTABLE_NAME} PRIVATE ../nrfx/helpers/nrfx_flag32_allocator.c)
-target_sources(${EXECUTABLE_NAME} PRIVATE ../nrfx/drivers/src/nrfx_grtc.c)
+#target_sources(${EXECUTABLE_NAME} PRIVATE ../nrfx/drivers/src/nrfx_grtc.c)
+#target_sources(${EXECUTABLE_NAME} PRIVATE ../nrfx/drivers/src/nrfx_cracen.c)
+#target_sources(${EXECUTABLE_NAME} PRIVATE ../nrfx/drivers/src/nrfx_saadc.c)
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_adc.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_bellboard.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_clock.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_ipc.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_mramc.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_nvmc.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_qspi.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_rng.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_rtc_legacy.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_rtc.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_spi.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_spis.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_tbm.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_tdm.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_twi.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_uart.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_usbd.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_usbreg.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_vevif.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_comp.c")
+list(FILTER NRFX_SOURCES EXCLUDE REGEX "../nrfx/drivers/src/nrfx_power.c")
+
+target_sources(${EXECUTABLE_NAME} PRIVATE ${NRFX_SOURCES})
+target_compile_definitions(${EXECUTABLE_NAME} PRIVATE NRFX_CLOCK_ENABLED=1)
+
 
 target_include_directories(${EXECUTABLE_NAME} PRIVATE ../cmsis/CMSIS/Core/Include)
 
@@ -100,6 +129,7 @@ file(GLOB_RECURSE NIMBLE_SOURCES "${NIMBLE_PATH}/nimble/**/*.c"
  "${NIMBLE_PATH}/porting/nimble/src/os_mempool.c"
  "${NIMBLE_PATH}/porting/nimble/src/os_msys.c"
  "${NIMBLE_PATH}/porting/nimble/src/mem.c"
+ "${NIMBLE_PATH}/porting/nimble/src/nimble_port.c"
  )
 # Exclude test files from build
 list(FILTER NIMBLE_SOURCES EXCLUDE REGEX "${NIMBLE_PATH}/nimble/controller/.*/.+\\.c")
@@ -113,7 +143,7 @@ list(FILTER NIMBLE_SOURCES EXCLUDE REGEX "${NIMBLE_PATH}/apps/.+\\.c")
 list(FILTER NIMBLE_SOURCES EXCLUDE REGEX "${NIMBLE_PATH}/babblesim/.+\\.c")
 #add_library(${EXECUTABLE_NAME} ${NIMBLE_SOURCES})
 target_include_directories(${EXECUTABLE_NAME} PRIVATE
-dummy/nimble/bin/targets/nrf52/generated/include
+dummy/nimble/bin/targets/nrf54/generated/include
 ${NIMBLE_PATH}/porting/nimble/include
 ${NIMBLE_PATH}/include
 ${NIMBLE_PATH}/nimble/include
@@ -121,7 +151,6 @@ ${NIMBLE_PATH}/porting/npl/freertos/include
 ${NIMBLE_PATH}/nimble/transport/include
 ${NIMBLE_PATH}/nimble/controller/include
 ${NIMBLE_PATH}/nimble/drivers/nrf5x/include
-${NIMBLE_PATH}/ext/tinycrypt/include
 ${NIMBLE_PATH}/nimble/host/include
 ${NIMBLE_PATH}/nimble/host/services/ans/include
 ${NIMBLE_PATH}/nimble/host/services/bas/include
@@ -148,8 +177,22 @@ target_sources(${EXECUTABLE_NAME} PRIVATE ${NIMBLE_SOURCES})
 # tinycrypt
 
 set(TINYCRYPT_PATH ../tinycrypt)
-file(GLOB_RECURSE TINYCRYPT_SOURCES "${TINYCRYPT_PATH}/lib/source/*.c")
-add_library(tinycrypt ${TINYCRYPT_SOURCES})
+#file(GLOB_RECURSE TINYCRYPT_SOURCES "${TINYCRYPT_PATH}/lib/source/*.c")
+add_library(tinycrypt
+ ${TINYCRYPT_PATH}/lib/source/aes_decrypt.c
+ ${TINYCRYPT_PATH}/lib/source/aes_encrypt.c
+ ${TINYCRYPT_PATH}/lib/source/cbc_mode.c
+ ${TINYCRYPT_PATH}/lib/source/ccm_mode.c
+ ${TINYCRYPT_PATH}/lib/source/cmac_mode.c
+ ${TINYCRYPT_PATH}/lib/source/ctr_mode.c
+ ${TINYCRYPT_PATH}/lib/source/ctr_prng.c
+ ${TINYCRYPT_PATH}/lib/source/ecc_dh.c
+ ${TINYCRYPT_PATH}/lib/source/ecc_dsa.c
+ ${TINYCRYPT_PATH}/lib/source/ecc.c
+ ${TINYCRYPT_PATH}/lib/source/hmac_prng.c
+ ${TINYCRYPT_PATH}/lib/source/hmac.c
+ ${TINYCRYPT_PATH}/lib/source/sha256.c
+ ${TINYCRYPT_PATH}/lib/source/utils.c)
 target_include_directories(tinycrypt PUBLIC ${TINYCRYPT_PATH}/lib/include) # Public to allow main executable to use the library
 
 

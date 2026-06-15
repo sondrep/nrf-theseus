@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-pkg.name: "targets/nrf52"
+pkg.name: "targets/nrf54"
 pkg.type: "target"
 pkg.description:
 pkg.author:

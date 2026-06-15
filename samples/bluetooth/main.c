@@ -27,11 +27,45 @@
 #include "host/ble_hs.h"
 #include "host/util/util.h"
 #include "services/gap/ble_svc_gap.h"
+#include "services/gatt/ble_svc_gatt.h"
+#include "nimble/nimble_port.h"
+#include "mpsl.h"
+#include <rng.h>
+#include <log.h>
 
-static const char *device_name = "Apache Mynewt";
+static const char *device_name = "Apache Asil";
 
 /* adv_event() calls advertise(), so forward declaration is required */
 static void advertise(void);
+
+
+void RADIO_0_IRQHandler(void){
+    MPSL_IRQ_RADIO_Handler();
+}
+
+
+void GRTC_3_IRQHandler(void){
+    MPSL_IRQ_RTC0_Handler();
+}
+
+void TIMER10_IRQHandler(void){
+    MPSL_IRQ_TIMER0_Handler();
+}
+void CLOCK_POWER_IRQHandler(void){
+    MPSL_IRQ_CLOCK_Handler();
+}
+
+void SWI03_IRQHandler(void){
+    mpsl_low_priority_process();
+}
+
+ void mpsl_low_latency_release_callback(void){
+
+}
+
+ void mpsl_low_latency_acquire_callback(void){
+
+}
 
 static void
 set_ble_addr(void)
@@ -110,15 +144,52 @@ on_reset(int reason)
 int main(void)
 {
     int rc;
+    console_init();
 
     /* Initialize all packages. */
     //sysinit();
+
+
+    rc = theseus_rng_init();
+    if(rc) {
+        return rc;
+    }
+     /*** Stage 0 */
+    /* 0.0: os_pkg_init (kernel/os) */
+    //os_mempool_module_init();
+    //os_msys_init();
+    nimble_port_init();
+
+    /*** Stage 250 */
+    /* 250.0: ble_transport_init (nimble/transport) */
+    ble_transport_init();
+
+    /* [$before:ble_transport_hs_init]: ble_ll_init (nimble/controller) */
+    /* [$before:ble_transport_ll_init]: ble_ll_init (nimble/controller) */
+    // ble_ll_init();
+
+    /*** Stage 251 */
+    /* 251.0: ble_transport_hs_init (nimble/transport) */
+    ble_transport_hs_init();
+
+    /*** Stage 301 */
+    /* 301.0: ble_svc_gap_init (nimble/host/services/gap) */
+    ble_svc_gap_init();
+
+    /*** Stage 302 */
+    /* 302.0: ble_svc_gatt_init (nimble/host/services/gatt) */
+    ble_svc_gatt_init();
+
+    /* [$after:ble_transport_hs_init]: ble_transport_ll_init (nimble/transport) */
+    //ble_transport_ll_init();
 
     ble_hs_cfg.sync_cb = on_sync;
     ble_hs_cfg.reset_cb = on_reset;
 
     rc = ble_svc_gap_device_name_set(device_name);
     assert(rc == 0);
+
+    nimble_port_run();
 
     /* As the last thing, process events from default event queue. */
     while (1) {
