@@ -2,3 +2,8 @@
 .west
 build
 __pycache__
+/zephyr/
+/modules/
+/tools/
+/bootloader/
+/nrf-theseus
