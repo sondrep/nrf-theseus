@@ -30,41 +30,42 @@
 #include "services/gatt/ble_svc_gatt.h"
 #include "nimble/nimble_port.h"
 #include "mpsl.h"
-#include <rng.h>
-#include <log.h>
+#include <theseus/rng.h>
+#include <theseus/log.h>
+#include <nrfx_grtc.h>
 
 static const char *device_name = "Apache Asil";
 
 /* adv_event() calls advertise(), so forward declaration is required */
 static void advertise(void);
 
+/* The SoftDevice Controller / MPSL needs a running low-frequency clock (LFXO)
+ * and a live GRTC for radio timing. This sample runs a bare nimble_port_run()
+ * event loop and never starts the FreeRTOS scheduler, so vPortSetupTimerInterrupt()
+ * (which normally brings up the GRTC + LFXO) never runs. On a cold boot that
+ * left MPSL without its clock and advertising failed; flashing blinky first
+ * "fixed" it only because blinky's scheduler started the always-on GRTC/LFXO,
+ * which then survived (the GRTC is not cleared by a pin reset) into the BLE run.
+ *
+ * Bring the GRTC + LFXO up explicitly here, mirroring port.c's
+ * vPortSetupTimerInterrupt() minus the FreeRTOS tick channel/callback, so the
+ * BLE stack always has its clock regardless of what ran before. This must
+ * happen before ble_transport_init() initializes MPSL/the controller.
+ */
+static void grtc_lfclk_init(void)
+{
+    static uint8_t grtc_channel;
 
-void RADIO_0_IRQHandler(void){
-    MPSL_IRQ_RADIO_Handler();
-}
+    /* Drive the GRTC from the external low-frequency crystal (LFXO). */
+    nrfx_grtc_clock_source_set(NRF_GRTC_CLKSEL_LFXO);
 
+    /* Initialise the GRTC driver and start the 1 MHz system counter. */
+    nrfx_grtc_init(0);
+    nrfx_grtc_syscounter_start(false, &grtc_channel);
 
-void GRTC_3_IRQHandler(void){
-    MPSL_IRQ_RTC0_Handler();
-}
-
-void TIMER10_IRQHandler(void){
-    MPSL_IRQ_TIMER0_Handler();
-}
-void CLOCK_POWER_IRQHandler(void){
-    MPSL_IRQ_CLOCK_Handler();
-}
-
-void SWI03_IRQHandler(void){
-    mpsl_low_priority_process();
-}
-
- void mpsl_low_latency_release_callback(void){
-
-}
-
- void mpsl_low_latency_acquire_callback(void){
-
+    /* Zero the counter, then start it counting. */
+    nrfx_grtc_action_perform(NRFX_GRTC_ACTION_CLEAR);
+    nrfx_grtc_action_perform(NRFX_GRTC_ACTION_START);
 }
 
 static void
@@ -144,10 +145,9 @@ on_reset(int reason)
 int main(void)
 {
     int rc;
-    console_init();
+    theseus_console_init();
 
-    /* Initialize all packages. */
-    //sysinit();
+    grtc_lfclk_init();
 
 
     rc = theseus_rng_init();

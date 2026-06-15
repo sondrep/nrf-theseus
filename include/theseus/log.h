@@ -13,6 +13,6 @@
  * Configures the UARTE peripheral selected by Kconfig (CONFIG_CONSOLE_UART_*)
  * and wires picolibc stdout/stderr to it.  Must be called before any printf.
  */
-void console_init(void);
+void theseus_console_init(void);
 
 #endif /* THESEUS_CONSOLE_H */

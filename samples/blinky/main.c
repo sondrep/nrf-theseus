@@ -4,7 +4,7 @@
 #include <FreeRTOS.h>
 #include <task.h>
 #include <nrfx_gpiote.h>
-#include <log.h>
+#include <theseus/log.h>
 
 /* nRF54L15 DK LED pin mapping
  *   LED1 = P2.09
@@ -85,7 +85,7 @@ void TaskBlink(void *arg)
 int main(void)
 {
     /* Set up the GPIOTE hardware once before any task uses it */
-    console_init();
+    theseus_console_init();
     nrfx_gpiote_init(&gpiote, GPIOTE_IRQ_PRIORITY);
 
     /* Create one blink task per LED, each with its own settings */
