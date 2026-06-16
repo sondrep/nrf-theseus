@@ -19,6 +19,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <assert.h>
 
 /* BLE */
@@ -51,7 +52,6 @@
 #define bt_acl_flags_bc(f) ((f) >> 2)
 #define bt_acl_flags_pb(f) ((f) & BIT_MASK(2))
 
-
 void RADIO_0_IRQHandler(void){
     MPSL_IRQ_RADIO_Handler();
 }
@@ -81,8 +81,7 @@ void mpsl_low_latency_acquire_callback(void){
 }
 
 int ble_transport_to_ll_iso_impl(struct os_mbuf *om) {
-  /* From my understanding, os_mbuf works similarly to an arena allocator. I iterate over all the
-   * nodes and copy them to a continuous chunk of memory */
+  /* Flatten the mbuf chain into one contiguous buffer, prefixed with the H4 type byte. */
   size_t len = 1;
   for (struct os_mbuf *m = om; m; m = SLIST_NEXT(m, om_next)) {
     len += m->om_len;
@@ -130,8 +129,8 @@ static void sdc_callback_(void) {
     hf = le16toh(handle_buf);
     handle = bt_acl_handle(hf);
     flags = bt_acl_flags(hf);
-    pb = bt_acl_flags_pb(flags);  // packet boundary
-    bc = bt_acl_flags_bc(flags);  // broadcast
+    pb = bt_acl_flags_pb(flags);  /* packet boundary */
+    bc = bt_acl_flags_bc(flags);  /* broadcast */
 
     switch (msg_type) {
       case SDC_HCI_MSG_TYPE_NONE:
@@ -200,30 +199,35 @@ static void rand_poll_(uint8_t *buf, uint8_t size){
   (void)theseus_PRNG_get(buf, size);
 }
 
-/* Bring up the low-frequency clock + GRTC that the SoftDevice Controller / MPSL use for all radio timing.
- * This port runs Nordic's SDC + MPSL off the GRTC,
- * so the clock must be started here, once, before mpsl_init().
- * Keeping it in the porting layer means the BLE samples never have to touch the GRTC themselves.
- */
+/* Start the LF clock + GRTC used by the SoftDevice Controller / MPSL for radio timing.
+ * Doing it here, once, before mpsl_init() keeps the BLE samples from having to touch the GRTC themselves. */
 static void grtc_lfclk_init(void)
 {
     uint8_t grtc_channel;
 
+    /* The GRTC is shared: MPSL uses it for radio timing and the FreeRTOS tick (vPortSetupTimerInterrupt() in port.c) uses it as the kernel tick.
+     * Only one nrfx_grtc_init() is allowed; a second returns -EALREADY.
+     *
+     * If BLE is brought up from a task (scheduler already running),
+     * the tick setup has already initialised and started the GRTC,
+     * so defer to it. */
+    if (nrfx_grtc_init_check()) {
+        return;
+    }
+
     /* Drive the GRTC from the external LF crystal (LFXO) for a stable clock. */
     nrfx_grtc_clock_source_set(NRF_GRTC_CLKSEL_LFXO);
 
-    /* Bring up the GRTC step by step.
-     * Each call returns 0 on success,
-     * assert() halts loudly so a broken clock is caught here instead of failing silently later inside MPSL.
-     */
+    /* Bring up the GRTC step by step,
+     * assert() halts loudly so a broken clock is caught here rather than failing silently later inside MPSL. */
 
-    /* Initialise the GRTC driver (interrupt priority 0). */
+    /* Init the driver (IRQ priority 0). */
     assert(nrfx_grtc_init(0) == 0);
 
-    /* Start the 1 MHz system counter (also claims an unused compare channel). */
+    /* Start the 1 MHz system counter (claims an unused compare channel). */
     assert(nrfx_grtc_syscounter_start(false, &grtc_channel) == 0);
 
-    /* Sanity check: the counter is up and its value can be trusted. */
+    /* Sanity check: counter is up and its value can be trusted. */
     assert(nrfx_grtc_ready_check());
 }
 
@@ -279,7 +283,7 @@ void ble_transport_ll_init(void) {
 
   hci_ev = ble_transport_alloc_evt(0);
   if (hci_ev) {
-    /* Create a command complete event with a NO-OP opcode */
+    /* Post a NOP command-complete so the host knows the controller is up. */
     hci_ev->opcode = BLE_HCI_EVCODE_COMMAND_COMPLETE;
 
     hci_ev->length = sizeof(*ev);
@@ -297,6 +301,7 @@ void ble_transport_ll_init(void) {
 int ble_transport_to_ll_acl_impl(struct os_mbuf *om) {
   int sr;
 
+  /* Flatten the mbuf chain into one contiguous buffer. */
   size_t len = 0;
   for (struct os_mbuf *m = om; m; m = SLIST_NEXT(m, om_next)) {
     len += m->om_len;
@@ -354,7 +359,7 @@ int ble_transport_to_ll_cmd_impl(void *buf) {
       break;
 
     case 0x02:
-      /*There doesn't seem to be anything for this ogf*/
+      /* No commands mapped for this OGF. */
       break;
 
     case 0x03:
@@ -418,10 +423,14 @@ int ble_transport_to_ll_cmd_impl(void *buf) {
           break;
 
         case BLE_HCI_OCF_IP_RD_LOC_SUPP_CMD:
-          // err = sdc_hci_cmd_ip_read_local_supported_commands(rspbuf);
-          // hci_ev->length = sizeof(sdc_hci_cmd_ip_read_local_supported_commands_return_t);
-          // break;
-          // TODO: Fix undefined reference
+          /* This SDC variant does not export sdc_hci_cmd_ip_read_local_supported_commands(),
+           * so return an all-zero (no optional commands) map.
+           * The host needs the full 64-byte response,
+           * a short reply triggers a host reset that tears advertising back down. */
+          memset(rspbuf, 0, sizeof(sdc_hci_cmd_ip_read_local_supported_commands_return_t));
+          err = 0;
+          hci_ev->length = sizeof(sdc_hci_cmd_ip_read_local_supported_commands_return_t);
+          break;
 
         case BLE_HCI_OCF_IP_RD_LOC_SUPP_FEAT:
           err = sdc_hci_cmd_ip_read_local_supported_features(rspbuf);
@@ -457,7 +466,7 @@ int ble_transport_to_ll_cmd_impl(void *buf) {
       break;
 
     case 0x06:
-      /*There doesn't seem to be anything for this ogf*/
+      /* No commands mapped for this OGF. */
       break;
 
     case 0x08:
@@ -598,10 +607,8 @@ int ble_transport_to_ll_cmd_impl(void *buf) {
           break;
 
         case BLE_HCI_OCF_LE_RD_SUPP_STATES:
-          // err = sdc_hci_cmd_le_read_supported_states(rspbuf);
-          // hci_ev->length = sizeof(sdc_hci_cmd_le_read_supported_states_return_t);
-          // break;
-          // TODO: Fix undefined reference
+          /* TODO: undefined reference to sdc_hci_cmd_le_read_supported_states(),
+           * falls through to the test-command stubs below. */
 
         case BLE_HCI_OCF_LE_RX_TEST:
           hci_ev->length = 0;
@@ -1210,5 +1217,9 @@ int ble_transport_to_ll_cmd_impl(void *buf) {
 
   ble_transport_to_hs_evt(hci_ev);
 
-  return -((int)(err));
+  /* Return value reports only that the command reached the controller,
+   * the actual status travels in the Command Complete event posted above.
+   * Returning the controller status here would make ble_hs_hci_cmd_tx() abort before consuming the ack,
+   * desyncing the ack semaphore and breaking every subsequent command. */
+  return 0;
 }
