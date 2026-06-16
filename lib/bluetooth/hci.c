@@ -24,8 +24,6 @@
 /* BLE */
 #include <nimble/transport/hci_h4.h>
 
-// #include "../../../../../src/fw/drivers/uart.h"
-// #include "../../../../../src/libutil/includes/util/string.h"
 #include "nimble/ble.h"
 #include "nimble/hci_common.h"
 #include "nimble/nimble_npl.h"
