@@ -18,6 +18,7 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <assert.h>
 
 /* BLE */
@@ -107,8 +108,8 @@ int ble_transport_to_ll_iso_impl(struct os_mbuf *om) {
 }
 
 static void fault_handler_(const char *file, const uint32_t line) {
+  printf("MPSL fault: %s:%lu\n", file ? file : "?", (unsigned long)line);
   assert(0);
-  return;  // TODO: Log error
 }
 
 static void sdc_callback_(void) {
