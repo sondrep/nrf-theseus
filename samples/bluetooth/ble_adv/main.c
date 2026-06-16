@@ -40,161 +40,124 @@ static const char *device_name = "Apache Asil";
 /* adv_event() calls advertise(), so forward declaration is required */
 static void advertise(void);
 
-/* The SoftDevice Controller / MPSL needs a running low-frequency clock (LFXO)
- * and a live GRTC for radio timing. This sample runs a bare nimble_port_run()
- * event loop and never starts the FreeRTOS scheduler, so vPortSetupTimerInterrupt()
- * (which normally brings up the GRTC + LFXO) never runs. On a cold boot that
- * left MPSL without its clock and advertising failed; flashing blinky first
- * "fixed" it only because blinky's scheduler started the always-on GRTC/LFXO,
- * which then survived (the GRTC is not cleared by a pin reset) into the BLE run.
- *
- * Bring the GRTC + LFXO up explicitly here, mirroring port.c's
- * vPortSetupTimerInterrupt() minus the FreeRTOS tick channel/callback, so the
- * BLE stack always has its clock regardless of what ran before. This must
- * happen before ble_transport_init() initializes MPSL/the controller.
- */
-static void grtc_lfclk_init(void)
+static void set_ble_addr(void)
 {
-    static uint8_t grtc_channel;
+	int rc;
+	ble_addr_t addr;
 
-    /* Drive the GRTC from the external low-frequency crystal (LFXO). */
-    nrfx_grtc_clock_source_set(NRF_GRTC_CLKSEL_LFXO);
+	/* generate new non-resolvable private address */
+	rc = ble_hs_id_gen_rnd(1, &addr);
+	assert(rc == 0);
 
-    /* Initialise the GRTC driver and start the 1 MHz system counter. */
-    nrfx_grtc_init(0);
-    nrfx_grtc_syscounter_start(false, &grtc_channel);
-
-    /* Zero the counter, then start it counting. */
-    nrfx_grtc_action_perform(NRFX_GRTC_ACTION_CLEAR);
-    nrfx_grtc_action_perform(NRFX_GRTC_ACTION_START);
+	/* set generated address */
+	rc = ble_hs_id_set_rnd(addr.val);
+	assert(rc == 0);
 }
 
-static void
-set_ble_addr(void)
+static int adv_event(struct ble_gap_event *event, void *arg)
 {
-    int rc;
-    ble_addr_t addr;
-
-    /* generate new non-resolvable private address */
-    rc = ble_hs_id_gen_rnd(1, &addr);
-    assert(rc == 0);
-
-    /* set generated address */
-    rc = ble_hs_id_set_rnd(addr.val);
-    assert(rc == 0);
+	switch (event->type) {
+	case BLE_GAP_EVENT_ADV_COMPLETE:
+		advertise();
+		return 0;
+	default:
+		return 0;
+	}
 }
 
-static int
-adv_event(struct ble_gap_event *event, void *arg)
+static void advertise(void)
 {
-    switch (event->type) {
-    case BLE_GAP_EVENT_ADV_COMPLETE:
-        advertise();
-        return 0;
-    default:
-        return 0;
-    }
+	int rc;
+	struct ble_gap_adv_params adv_params;
+	struct ble_hs_adv_fields fields;
+
+	/* set adv parameters */
+	memset(&adv_params, 0, sizeof(adv_params));
+	adv_params.conn_mode = BLE_GAP_CONN_MODE_NON;
+	adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
+
+	memset(&fields, 0, sizeof(fields));
+
+	/* Fill the fields with advertising data - flags, tx power level, name */
+	fields.flags = BLE_HS_ADV_F_DISC_GEN;
+	fields.tx_pwr_lvl_is_present = 1;
+	fields.tx_pwr_lvl = BLE_HS_ADV_TX_PWR_LVL_AUTO;
+	fields.name = (uint8_t *)device_name;
+	fields.name_len = strlen(device_name);
+	fields.name_is_complete = 1;
+
+	rc = ble_gap_adv_set_fields(&fields);
+	assert(rc == 0);
+
+	/* As own address type we use hard-coded value, because we generate
+	   NRPA and by definition it's random */
+	rc = ble_gap_adv_start(BLE_OWN_ADDR_RANDOM, NULL, 10000, &adv_params, adv_event, NULL);
+	assert(rc == 0);
 }
 
-static void
-advertise(void)
+static void on_sync(void)
 {
-    int rc;
-    struct ble_gap_adv_params adv_params;
-    struct ble_hs_adv_fields fields;
+	set_ble_addr();
 
-    /* set adv parameters */
-    memset(&adv_params, 0, sizeof(adv_params));
-    adv_params.conn_mode = BLE_GAP_CONN_MODE_NON;
-    adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
-
-    memset(&fields, 0, sizeof(fields));
-
-    /* Fill the fields with advertising data - flags, tx power level, name */
-    fields.flags = BLE_HS_ADV_F_DISC_GEN;
-    fields.tx_pwr_lvl_is_present = 1;
-    fields.tx_pwr_lvl = BLE_HS_ADV_TX_PWR_LVL_AUTO;
-    fields.name = (uint8_t *)device_name;
-    fields.name_len = strlen(device_name);
-    fields.name_is_complete = 1;
-
-    rc = ble_gap_adv_set_fields(&fields);
-    assert(rc == 0);
-
-
-    /* As own address type we use hard-coded value, because we generate
-       NRPA and by definition it's random */
-    rc = ble_gap_adv_start(BLE_OWN_ADDR_RANDOM, NULL, 10000,
-                           &adv_params, adv_event, NULL);
-    assert(rc == 0);
+	/* begin advertising */
+	advertise();
 }
 
-static void
-on_sync(void)
-{
-    set_ble_addr();
-
-    /* begin advertising */
-    advertise();
-}
-
-static void
-on_reset(int reason)
+static void on_reset(int reason)
 {
 }
 
 int main(void)
 {
-    int rc;
-    theseus_modules_init();
+	int rc;
+	theseus_modules_init();
 
-    grtc_lfclk_init();
+	grtc_lfclk_init();
 
+	rc = theseus_rng_init();
+	if (rc) {
+		return rc;
+	}
+	/*** Stage 0 */
+	/* 0.0: os_pkg_init (kernel/os) */
+	// os_mempool_module_init();
+	// os_msys_init();
+	nimble_port_init();
 
-    rc = theseus_rng_init();
-    if(rc) {
-        return rc;
-    }
-     /*** Stage 0 */
-    /* 0.0: os_pkg_init (kernel/os) */
-    //os_mempool_module_init();
-    //os_msys_init();
-    nimble_port_init();
+	/*** Stage 250 */
+	/* 250.0: ble_transport_init (nimble/transport) */
+	ble_transport_init();
 
-    /*** Stage 250 */
-    /* 250.0: ble_transport_init (nimble/transport) */
-    ble_transport_init();
+	/* [$before:ble_transport_hs_init]: ble_ll_init (nimble/controller) */
+	/* [$before:ble_transport_ll_init]: ble_ll_init (nimble/controller) */
+	// ble_ll_init();
 
-    /* [$before:ble_transport_hs_init]: ble_ll_init (nimble/controller) */
-    /* [$before:ble_transport_ll_init]: ble_ll_init (nimble/controller) */
-    // ble_ll_init();
+	/*** Stage 251 */
+	/* 251.0: ble_transport_hs_init (nimble/transport) */
+	ble_transport_hs_init();
 
-    /*** Stage 251 */
-    /* 251.0: ble_transport_hs_init (nimble/transport) */
-    ble_transport_hs_init();
+	/*** Stage 301 */
+	/* 301.0: ble_svc_gap_init (nimble/host/services/gap) */
+	ble_svc_gap_init();
 
-    /*** Stage 301 */
-    /* 301.0: ble_svc_gap_init (nimble/host/services/gap) */
-    ble_svc_gap_init();
+	/*** Stage 302 */
+	/* 302.0: ble_svc_gatt_init (nimble/host/services/gatt) */
+	ble_svc_gatt_init();
 
-    /*** Stage 302 */
-    /* 302.0: ble_svc_gatt_init (nimble/host/services/gatt) */
-    ble_svc_gatt_init();
+	/* [$after:ble_transport_hs_init]: ble_transport_ll_init (nimble/transport) */
+	// ble_transport_ll_init();
 
-    /* [$after:ble_transport_hs_init]: ble_transport_ll_init (nimble/transport) */
-    //ble_transport_ll_init();
+	ble_hs_cfg.sync_cb = on_sync;
+	ble_hs_cfg.reset_cb = on_reset;
 
-    ble_hs_cfg.sync_cb = on_sync;
-    ble_hs_cfg.reset_cb = on_reset;
+	rc = ble_svc_gap_device_name_set(device_name);
+	assert(rc == 0);
 
-    rc = ble_svc_gap_device_name_set(device_name);
-    assert(rc == 0);
+	nimble_port_run();
 
-    nimble_port_run();
+	/* As the last thing, process events from default event queue. */
+	while (1) {
+	}
 
-    /* As the last thing, process events from default event queue. */
-    while (1) {
-    }
-
-    return 0;
+	return 0;
 }

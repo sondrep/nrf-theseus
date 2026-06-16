@@ -28,7 +28,6 @@
 #include "mpsl.h"
 #include <rng.h>
 #include <log.h>
-#include <nrfx_grtc.h>
 
 static const char *device_name = "Apache-Sondre";
 
@@ -276,27 +275,10 @@ on_reset(int reason)
 {
 }
 
-static void grtc_lfclk_init(void)
-{
-    static uint8_t grtc_channel;
-
-    /* Drive the GRTC from the external low-frequency crystal (LFXO). */
-    nrfx_grtc_clock_source_set(NRF_GRTC_CLKSEL_LFXO);
-
-    /* Initialise the GRTC driver and start the 1 MHz system counter. */
-    nrfx_grtc_init(0);
-    nrfx_grtc_syscounter_start(false, &grtc_channel);
-
-    /* Zero the counter, then start it counting. */
-    nrfx_grtc_action_perform(NRFX_GRTC_ACTION_CLEAR);
-    nrfx_grtc_action_perform(NRFX_GRTC_ACTION_START);
-}
-
 int main(void)
 {
     int rc;
     console_init();
-    grtc_lfclk_init();
 
     /* Initialize all packages. */
     //sysinit();

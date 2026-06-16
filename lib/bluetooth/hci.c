@@ -18,6 +18,7 @@
  */
 
 #include <stdlib.h>
+#include <assert.h>
 
 /* BLE */
 #include <nimble/transport/hci_h4.h>
@@ -41,6 +42,7 @@
 #include "sdc_soc.h"
 #include <theseus/rng.h>
 #include <nrfx.h>
+#include <nrfx_grtc.h>
 
 #define BIT(n) (1UL << (n))
 #define BIT_MASK(n) (BIT(n) - 1UL)
@@ -199,8 +201,42 @@ static void rand_poll_(uint8_t *buf, uint8_t size){
   (void)theseus_PRNG_get(buf, size);
 }
 
+/* Bring up the low-frequency clock + GRTC that the SoftDevice Controller / MPSL use for all radio timing.
+ * This port runs Nordic's SDC + MPSL off the GRTC,
+ * so the clock must be started here, once, before mpsl_init().
+ * Keeping it in the porting layer means the BLE samples never have to touch the GRTC themselves.
+ */
+static void grtc_lfclk_init(void)
+{
+    uint8_t grtc_channel;
+
+    /* Drive the GRTC from the external LF crystal (LFXO) for a stable clock. */
+    nrfx_grtc_clock_source_set(NRF_GRTC_CLKSEL_LFXO);
+
+    /* Bring up the GRTC step by step.
+     * Each call returns 0 on success,
+     * assert() halts loudly so a broken clock is caught here instead of failing silently later inside MPSL.
+     */
+
+    /* Initialise the GRTC driver (interrupt priority 0). */
+    assert(nrfx_grtc_init(0) == 0);
+
+    /* Start the 1 MHz system counter (also claims an unused compare channel). */
+    assert(nrfx_grtc_syscounter_start(false, &grtc_channel) == 0);
+
+    /* Sanity check: the counter is up and its value can be trusted. */
+    assert(nrfx_grtc_ready_check());
+
+    /* Zero the counter, then start it counting. */
+    nrfx_grtc_action_perform(NRFX_GRTC_ACTION_CLEAR);
+    nrfx_grtc_action_perform(NRFX_GRTC_ACTION_START);
+}
+
 void ble_transport_ll_init(void) {
   int32_t err;
+
+  /* Bring up the LFXO + GRTC before the controller needs them. */
+  grtc_lfclk_init();
 
   err = mpsl_init(NULL, SWI03_IRQn, fault_handler_);
   if (err < 0) {
