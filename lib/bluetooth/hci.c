@@ -90,7 +90,7 @@ int ble_transport_to_ll_iso_impl(struct os_mbuf *om) {
     len += m->om_len;
   }
 
-  uint8_t *buf = malloc(len);  // TODO: Don't use malloc
+  uint8_t *buf = malloc(len);
 
   buf[0] = HCI_H4_ISO;
 
