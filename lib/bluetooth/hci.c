@@ -225,10 +225,6 @@ static void grtc_lfclk_init(void)
 
     /* Sanity check: the counter is up and its value can be trusted. */
     assert(nrfx_grtc_ready_check());
-
-    /* Zero the counter, then start it counting. */
-    nrfx_grtc_action_perform(NRFX_GRTC_ACTION_CLEAR);
-    nrfx_grtc_action_perform(NRFX_GRTC_ACTION_START);
 }
 
 void ble_transport_ll_init(void) {
