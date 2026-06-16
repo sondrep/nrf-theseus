@@ -48,7 +48,7 @@ FILE *const stderr = &uart_file;
 
 /* ---- Public API ------------------------------------------------------- */
 
-void console_init(void)
+void theseus_console_init(void)
 {
     xPrintSemaphore = xSemaphoreCreateMutex();
 

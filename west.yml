@@ -13,22 +13,24 @@ manifest:
   version: "0.13"
 
   # "remotes" is a list of locations where git repositories are cloned
-  # and fetched from.
+  # and fetched from. Keep sorted alphabetically by name.
   remotes:
-    - name: ncs
-      url-base: https://github.com/nrfconnect
+    - name: apache
+      url-base: https://github.com/apache
+    - name: ARM-software
+      url-base: https://github.com/ARM-software
     - name: FreeRTOS
       url-base: https://github.com/FreeRTOS
+    - name: intel
+      url-base: https://github.com/intel
+    - name: mcu-tools
+      url-base: https://github.com/mcu-tools
+    - name: ncs
+      url-base: https://github.com/nrfconnect
     - name: nordicsemi
       url-base: https://github.com/NordicSemiconductor
     - name: picolibc
       url-base: https://github.com/picolibc
-    - name: ARM-software
-      url-base: https://github.com/ARM-software
-    - name: apache
-      url-base: https://github.com/apache
-    - name: intel
-      url-base: https://github.com/intel
 
   # Projects pull from this remote unless they override it.
   defaults:
@@ -49,6 +51,33 @@ manifest:
       path: FreeRTOS-Kernel
       revision: V11.1.0
 
+    - name: mcuboot
+      remote: mcu-tools
+      repo-path: mcuboot
+      path: mcuboot
+      revision: v2.4.0
+
+    - name: mynewt-core
+      remote: apache
+      repo-path: mynewt-core
+      path: mynewt-core
+      # No tag matches NimBLE 1.9.0's expectations as of 2026.06.15
+      # (the compatible state is over 100+ commits past mynewt_1_14_0_tag on master, with no release tag there).
+      # Pinned to this known-good commit for a reproducible build.
+      revision: fb5c45cc345e11cca474f751136f9eebbf1d143c
+
+    - name: newt
+      remote: apache
+      repo-path: mynewt-newt
+      path: mynewt-newt
+      revision: mynewt_1_14_0_tag
+
+    - name: nimble
+      remote: apache
+      repo-path: mynewt-nimble
+      path: mynewt-nimble
+      revision: nimble_1_9_0_tag
+
     - name: nrfx
       remote: nordicsemi
       repo-path: nrfx
@@ -67,23 +96,12 @@ manifest:
       repo-path: picolibc
       path: picolibc
       revision: "1.8.6"
-    - name: nimble
-      remote: apache
-      repo-path: mynewt-nimble
-      path: nrf-theseus/dummy/nimble/repos/apache-mynewt-nimble
-      revision: nimble_1_9_0_tag
-    - name: newt
-      remote: apache
-      repo-path: mynewt-newt
-      path: nrf-theseus/dummy/nimble/repos/apache-mynewt-newt
-      revision: mynewt_1_14_0_tag
+
     - name: tinycrypt
       remote: intel
       repo-path: tinycrypt
       path: tinycrypt
       revision: v0.2.8
-
-
 
   self:
     path: nrf-theseus

@@ -1,43 +1,32 @@
 # nrf-theseus
-Base repository for the nRF Theseus project.
+Base repository for the nRF Theseus project — a bare-metal FreeRTOS port for
+the nRF54L15 (Arm Cortex-M33), built and managed with west.
 
-## Initialize workspace
-
-To initialize the workspace using the command line, do the following:
-
-1. Clone the relevant version tag or branch:
-
-   ```shell
-   west init -m https://github.com/sondrep/nrf-theseus.git --mr main
-   ```
-
-2. Update the structure based on the current repository revision:
-
-   ```shell
-   west update
-   ```
-
-## Building & Flashing a Sample
-
-To build a project you can run:
+## Setup workspace
+This repo is a west manifest repository, so it lives inside a workspace
+directory. Create the workspace, clone the repo into it, then let west fetch
+the dependencies:
 
 ```shell
-west build -s SAMPLE_NAME -b TARGET_BOARD
+mkdir ~/my_ws
+cd ~/my_ws
+git clone https://github.com/sondrep/nrf-theseus.git
+west init -l nrf-theseus
+west update
 ```
-This builds a sample from the `samples/` directory, where you need to replace `SAMPLE_NAME` with the directory name of the sample you want to build.
-The target boards can be found in `cmake/targets/`, where you need to replace `TARGET_BOARD` with the name of one of the targets found in this directory (without `.cmake`).
 
-After a sample is built, you can run:
+## Build and flashing a sample
 ```shell
+cd ~/my_ws/nrf-theseus
+west build -s SAMPLE_NAME -b TARGET_BOARD
 west flash
 ```
-to flash the sample you just built.
 
-## Nimble
-```sudo apt install golang-go
-cd repos/apache-mynewt-newt
-./build.sh
-cd -
-newt upgrade --shallow=1
-repos/apache-mynewt-newt/newt/newt build nrf54
-```
+- `SAMPLE_NAME` — a directory under `samples/`.
+- `TARGET_BOARD` — a target from `cmake/targets/`, without the `.cmake` suffix.
+
+> **Note:** The NimBLE build compiles Apache Mynewt's `newt` tool from source, which requires Go. Install it before building:
+>
+> ```shell
+> sudo apt install golang-go
+> ```

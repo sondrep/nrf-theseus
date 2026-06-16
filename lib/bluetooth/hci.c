@@ -39,7 +39,8 @@
 #include "sdc_hci_cmd_link_control.h"
 #include "sdc_hci_cmd_status_params.h"
 #include "sdc_soc.h"
-#include <rng.h>
+#include <theseus/rng.h>
+#include <nrfx.h>
 
 #define BIT(n) (1UL << (n))
 #define BIT_MASK(n) (BIT(n) - 1UL)
@@ -49,7 +50,34 @@
 #define bt_acl_flags_bc(f) ((f) >> 2)
 #define bt_acl_flags_pb(f) ((f) & BIT_MASK(2))
 
-#define uart_write_byte(a, b)
+
+void RADIO_0_IRQHandler(void){
+    MPSL_IRQ_RADIO_Handler();
+}
+
+
+void GRTC_3_IRQHandler(void){
+    MPSL_IRQ_RTC0_Handler();
+}
+
+void TIMER10_IRQHandler(void){
+    MPSL_IRQ_TIMER0_Handler();
+}
+void CLOCK_POWER_IRQHandler(void){
+    MPSL_IRQ_CLOCK_Handler();
+}
+
+void SWI03_IRQHandler(void){
+    mpsl_low_priority_process();
+}
+
+void mpsl_low_latency_release_callback(void){
+
+}
+
+void mpsl_low_latency_acquire_callback(void){
+
+}
 
 int ble_transport_to_ll_iso_impl(struct os_mbuf *om) {
   /* From my understanding, os_mbuf works similarly to an arena allocator. I iterate over all the
@@ -88,23 +116,8 @@ static void sdc_callback_(void) {
   uint8_t msg_type;
   while (1) {
     rc = sdc_hci_get(buf, &msg_type);
-    if (rc == 0) {
-      const char *msg = "sdc_callback_msg ";
-      for (size_t i = 0; i < sizeof("sdc_callback_msg ") - 1; ++i) {
-        uart_write_byte(DBG_UART, msg[i]);
-      }
-      char fmt_buf[16] = {0};
-      itoa(msg_type, fmt_buf, sizeof(fmt_buf));
-      uart_write_byte(DBG_UART, fmt_buf[8]);
-      uart_write_byte(DBG_UART, fmt_buf[9]);
-      uart_write_byte(DBG_UART, ' ');
-      for (size_t i = 0; i < HCI_MSG_BUFFER_MAX_SIZE; ++i) {
-        itoa(buf[i], fmt_buf, sizeof(fmt_buf));
-        uart_write_byte(DBG_UART, fmt_buf[8]);
-        uart_write_byte(DBG_UART, fmt_buf[9]);
-        uart_write_byte(DBG_UART, ' ');
-      }
-      uart_write_byte(DBG_UART, '\n');
+    if(rc != 0){
+        break;
     }
 
     uint16_t hf, handle, len;
@@ -189,7 +202,7 @@ static void rand_poll_(uint8_t *buf, uint8_t size){
 void ble_transport_ll_init(void) {
   int32_t err;
 
-  err = mpsl_init(NULL, 31, fault_handler_);
+  err = mpsl_init(NULL, SWI03_IRQn, fault_handler_);
   if (err < 0) {
     return;
   }
@@ -247,8 +260,6 @@ void ble_transport_ll_init(void) {
     err = ble_transport_to_hs_evt(hci_ev);
   }
 
-  // free(mem);
-
   return;
 }
 
@@ -262,27 +273,11 @@ int ble_transport_to_ll_acl_impl(struct os_mbuf *om) {
 
   uint8_t *buf = malloc(len);
 
-  // buf[0] = HCI_H4_ACL;
-
   size_t i = 0;
   for (struct os_mbuf *m = om; m; m = SLIST_NEXT(m, om_next)) {
     memcpy(&buf[i], m->om_data, m->om_len);
     i += m->om_len;
   }
-
-  uart_write_byte(DBG_UART, '\n');
-  const char *msg = "acl_msg ";
-  for (size_t i = 0; i < sizeof("acl_msg ") - 1; ++i) {
-    uart_write_byte(DBG_UART, msg[i]);
-  }
-  for (size_t i = 0; i < len; ++i) {
-    char fmt_buf[16];
-    itoa(buf[i], fmt_buf, sizeof(fmt_buf));
-    uart_write_byte(DBG_UART, fmt_buf[8]);
-    uart_write_byte(DBG_UART, fmt_buf[9]);
-    uart_write_byte(DBG_UART, ' ');
-  }
-  uart_write_byte(DBG_UART, '\n');
 
   OS_ENTER_CRITICAL(sr);
   int32_t err = sdc_hci_data_put(buf);
@@ -307,24 +302,6 @@ int ble_transport_to_ll_cmd_impl(void *buf) {
 
   struct ble_hci_ev *hci_ev = (struct ble_hci_ev *)cmd;
   void *rspbuf = hci_ev->data + sizeof(struct ble_hci_ev_command_complete);
-
-  char fmt_buf[16];
-  char msg[] = "sdc_cmd ";
-  for (size_t i = 0; i < sizeof(msg) - 1; ++i) {
-    uart_write_byte(DBG_UART, msg[i]);
-  }
-
-  itoa(ogf, fmt_buf, sizeof(fmt_buf));
-  uart_write_byte(DBG_UART, fmt_buf[8]);
-  uart_write_byte(DBG_UART, fmt_buf[9]);
-  uart_write_byte(DBG_UART, ' ');
-
-  itoa(ocf, fmt_buf, sizeof(fmt_buf));
-  uart_write_byte(DBG_UART, fmt_buf[8]);
-  uart_write_byte(DBG_UART, fmt_buf[9]);
-  uart_write_byte(DBG_UART, ' ');
-
-  uart_write_byte(DBG_UART, '\n');
 
   switch (ogf) {
     case 0x01:
@@ -1197,9 +1174,6 @@ int ble_transport_to_ll_cmd_impl(void *buf) {
   cmd_complete->status = err;
   cmd_complete->num_packets = 1;
   cmd_complete->opcode = htole16(opcode);
-  if (cmd_complete->opcode == BLE_HCI_OPCODE_NOP) {
-    uart_write_byte(DBG_UART, ' ');
-  }
   hci_ev->opcode = BLE_HCI_EVCODE_COMMAND_COMPLETE;
   hci_ev->length += sizeof(struct ble_hci_ev_command_complete);
 
