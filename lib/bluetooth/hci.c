@@ -42,6 +42,7 @@
 #include "sdc_soc.h"
 #include <theseus/rng.h>
 #include <nrfx.h>
+#include <theseus/log.h>
 #include <nrfx_grtc.h>
 
 #define BIT(n) (1UL << (n))
@@ -68,8 +69,24 @@ void CLOCK_POWER_IRQHandler(void){
     MPSL_IRQ_CLOCK_Handler();
 }
 
+static SemaphoreHandle_t mpsl_lp_sem;
+
 void SWI03_IRQHandler(void){
-    mpsl_low_priority_process();
+    BaseType_t woken = pdFALSE;
+    xSemaphoreGiveFromISR(mpsl_lp_sem, &woken);
+    portYIELD_FROM_ISR(woken);
+}
+
+/* Task to take sdc callback out of ISR context */
+static void mpsl_lp_task(void *arg){
+    for (;;) {
+        xSemaphoreTake(mpsl_lp_sem, portMAX_DELAY);
+
+        /* The sdc callback is executed in the same context as mpsl_low_priority_process().
+         * therefore it can't be called in an ISR.
+         */
+        mpsl_low_priority_process();
+    }
 }
 
 void mpsl_low_latency_release_callback(void){
@@ -136,19 +153,22 @@ static void sdc_callback_(void) {
       case SDC_HCI_MSG_TYPE_NONE:
         len = buf[1] + 2;
         struct ble_hci_ev *hci_ev = ble_transport_alloc_evt(0);
+        if (hci_ev == NULL) {
+          continue;
+        }
         struct ble_hci_ev_command_complete *cmd_complete = (void *)hci_ev->data;
         cmd_complete->status = 0;
         cmd_complete->num_packets = 1;
         cmd_complete->opcode = BLE_HCI_OPCODE_NOP;
         hci_ev->opcode = BLE_HCI_EVCODE_COMMAND_COMPLETE;
         hci_ev->length = sizeof(struct ble_hci_ev_command_complete);
+        OS_ENTER_CRITICAL(sr);
+        rc = ble_transport_to_hs_evt(hci_ev);
+        OS_EXIT_CRITICAL(sr);
         if (rc != 0) {
           ble_transport_free(hci_ev);
           return;
         }
-        OS_ENTER_CRITICAL(sr);
-        ble_transport_to_hs_evt(hci_ev);
-        OS_EXIT_CRITICAL(sr);
         return;
       case SDC_HCI_MSG_TYPE_DATA:
         len = le16toh(length_buf) + 4;
@@ -165,15 +185,27 @@ static void sdc_callback_(void) {
         break;
       case SDC_HCI_MSG_TYPE_EVT:
         len = buf[1] + 2;
-        void *m_evt = ble_transport_alloc_evt(0);
-        memcpy(m_evt, &buf[0], len);
-        if (rc != 0) {
-          ble_transport_free(m_evt);
-          return;
+
+        /* Advertising reports are floody and safe to drop: route them to the
+         * discardable pool so they can never exhaust RAM. Everything else
+        * (command complete/status, conn events, ...) must use the reserved pool. */
+        int discardable = (buf[0] == BLE_HCI_EVCODE_LE_META &&
+                          (buf[2] == BLE_HCI_LE_SUBEV_ADV_RPT ||
+                           buf[2] == BLE_HCI_LE_SUBEV_EXT_ADV_RPT));
+
+        void *m_evt = ble_transport_alloc_evt(discardable);
+        if (m_evt == NULL) {
+            continue;
         }
+
+        memcpy(m_evt, &buf[0], len);
         OS_ENTER_CRITICAL(sr);
-        ble_transport_to_hs_evt(m_evt);
+        rc = ble_transport_to_hs_evt(m_evt);
         OS_EXIT_CRITICAL(sr);
+        if (rc != 0) {
+            ble_transport_free(m_evt);
+            continue;
+        }
         break;
       case SDC_HCI_MSG_TYPE_ISO:
         len = le16toh(length_buf) + 4;
@@ -237,6 +269,15 @@ void ble_transport_ll_init(void) {
   /* Bring up the LFXO + GRTC before the controller needs them. */
   grtc_lfclk_init();
 
+  mpsl_lp_sem = xSemaphoreCreateBinary();
+  if (mpsl_lp_sem == NULL) {
+    return;
+  }
+
+  xTaskCreate(mpsl_lp_task, "mpsl_Task",
+              configMINIMAL_STACK_SIZE + 1024, NULL,
+              tskIDLE_PRIORITY + 3, NULL);
+
   err = mpsl_init(NULL, SWI03_IRQn, fault_handler_);
   if (err < 0) {
     return;
@@ -257,6 +298,9 @@ void ble_transport_ll_init(void) {
   sdc_support_peripheral();
 
   sdc_support_le_2m_phy();
+
+  /* Support HCI commands related to scanning */
+  sdc_support_scan();
 
 
   sdc_cfg_t cfg = {.peripheral_count = {.count = 1}};

@@ -26,43 +26,45 @@
 #include "services/gatt/ble_svc_gatt.h"
 #include "nimble/nimble_port.h"
 #include "mpsl.h"
-#include <rng.h>
-#include <log.h>
+#include <theseus/rng.h>
+#include <theseus/log.h>
+#include <nrfx_grtc.h>
+#include <FreeRTOS.h>
+#include <task.h>
+#include <queue.h>
 
-static const char *device_name = "Apache-Sondre";
+#define BLE_HOST_TASK_STACK_WORDS  ( 2048 )
+#define BLE_HOST_TASK_PRIORITY     ( tskIDLE_PRIORITY + 2 )
 
-void RADIO_0_IRQHandler(void){
-    MPSL_IRQ_RADIO_Handler();
-}
-
-
-void GRTC_3_IRQHandler(void){
-    MPSL_IRQ_RTC0_Handler();
-}
-
-void TIMER10_IRQHandler(void){
-    MPSL_IRQ_TIMER0_Handler();
-}
-void CLOCK_POWER_IRQHandler(void){
-    MPSL_IRQ_CLOCK_Handler();
-}
-
-void SWI03_IRQHandler(void){
-    mpsl_low_priority_process();
-}
-
- void mpsl_low_latency_release_callback(void){
-
-}
-
- void mpsl_low_latency_acquire_callback(void){
-
-}
-
+#define SCAN_PRINT_TASK_STACK_WORDS  ( 1024 )
+#define SCAN_PRINT_TASK_PRIORITY     ( tskIDLE_PRIORITY + 1 )
+#define SCAN_Q_DEPTH   16
+static QueueHandle_t scan_q; /* Queue handle for data to print */
 
 /* scan_event() calls scan(), so forward declaration is required */
 static void scan(void);
-static char *addr_str(const void *addr);
+
+struct scan_msg {
+    uint8_t addr[6];
+    int8_t  rssi;
+};
+
+static void
+scan_print_task(void *param)
+{
+    (void)param;
+    struct scan_msg msg;
+
+    for (;;) {
+        /* Block until a report is available; this task owns all printf cost. */
+        if (xQueueReceive(scan_q, &msg, portMAX_DELAY) == pdTRUE) {
+            printf("[APP] UUID %02x:%02x:%02x:%02x:%02x:%02x rssi=%d \n",
+                   msg.addr[5], msg.addr[4], msg.addr[3],
+                   msg.addr[2], msg.addr[1], msg.addr[0],
+                   msg.rssi);
+        }
+    }
+}
 
 static void
 ble_app_set_addr(void)
@@ -77,154 +79,14 @@ ble_app_set_addr(void)
     /* set generated address */
     rc = ble_hs_id_set_rnd(addr.val);
     assert(rc == 0);
-    printf("Generated address: %s \n", addr_str(&addr));
 }
 
-static void
-print_uuid(const ble_uuid_t *uuid)
-{
-    char buf[BLE_UUID_STR_LEN];
-
-    printf("%s", ble_uuid_to_str(uuid, buf));
-}
-
-/* Utility function to log an array of bytes. */
-static void
-print_bytes(const uint8_t *bytes, int len)
-{
-    int i;
-
-    for (i = 0; i < len; i++) {
-        printf("%s0x%02x", i != 0 ? ":" : "", bytes[i]);
-    }
-}
-
-static char *
-addr_str(const void *addr)
-{
-    static char buf[6 * 2 + 5 + 1];
-    const uint8_t *u8p;
-
-    u8p = addr;
-    sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x",
-            u8p[5], u8p[4], u8p[3], u8p[2], u8p[1], u8p[0]);
-
-    return buf;
-}
-
-static void
-print_adv_fields(const struct ble_hs_adv_fields *fields)
-{
-    char s[BLE_HS_ADV_MAX_SZ];
-    const uint8_t *u8p;
-    int i;
-
-    if (fields->flags != 0) {
-        printf("    flags=0x%02x\n", fields->flags);
-    }
-
-    if (fields->uuids16 != NULL) {
-        printf("    uuids16(%scomplete)=",
-                    fields->uuids16_is_complete ? "" : "in");
-        for (i = 0; i < fields->num_uuids16; i++) {
-            print_uuid(&fields->uuids16[i].u);
-            printf(" ");
-        }
-        printf("\n");
-    }
-
-    if (fields->uuids32 != NULL) {
-        printf("    uuids32(%scomplete)=",
-                    fields->uuids32_is_complete ? "" : "in");
-        for (i = 0; i < fields->num_uuids32; i++) {
-            print_uuid(&fields->uuids32[i].u);
-            printf(" ");
-        }
-        printf("\n");
-    }
-
-    if (fields->uuids128 != NULL) {
-        printf("    uuids128(%scomplete)=",
-                    fields->uuids128_is_complete ? "" : "in");
-        for (i = 0; i < fields->num_uuids128; i++) {
-            print_uuid(&fields->uuids128[i].u);
-            printf(" ");
-        }
-        printf("\n");
-    }
-
-    if (fields->name != NULL) {
-        assert(fields->name_len < sizeof s - 1);
-        memcpy(s, fields->name, fields->name_len);
-        s[fields->name_len] = '\0';
-        printf("    name(%scomplete)=%s\n",
-                    fields->name_is_complete ? "" : "in", s);
-    }
-
-    if (fields->tx_pwr_lvl_is_present) {
-        printf("    tx_pwr_lvl=%d\n", fields->tx_pwr_lvl);
-    }
-
-    if (fields->slave_itvl_range != NULL) {
-        printf("    slave_itvl_range=");
-        print_bytes(fields->slave_itvl_range, BLE_HS_ADV_SLAVE_ITVL_RANGE_LEN);
-        printf("\n");
-    }
-
-    if (fields->svc_data_uuid16 != NULL) {
-        printf("    svc_data_uuid16=");
-        print_bytes(fields->svc_data_uuid16, fields->svc_data_uuid16_len);
-        printf("\n");
-    }
-
-    if (fields->public_tgt_addr != NULL) {
-        printf("    public_tgt_addr=");
-        u8p = fields->public_tgt_addr;
-        for (i = 0; i < fields->num_public_tgt_addrs; i++) {
-            printf("public_tgt_addr=%s ", addr_str(u8p));
-            u8p += BLE_HS_ADV_PUBLIC_TGT_ADDR_ENTRY_LEN;
-        }
-        printf("\n");
-    }
-
-    if (fields->appearance_is_present) {
-        printf("    appearance=0x%04x\n", fields->appearance);
-    }
-
-    if (fields->adv_itvl_is_present) {
-        printf("    adv_itvl=0x%04x\n", fields->adv_itvl);
-    }
-
-    if (fields->svc_data_uuid32 != NULL) {
-        printf("    svc_data_uuid32=");
-        print_bytes(fields->svc_data_uuid32, fields->svc_data_uuid32_len);
-        printf("\n");
-    }
-
-    if (fields->svc_data_uuid128 != NULL) {
-        printf("    svc_data_uuid128=");
-        print_bytes(fields->svc_data_uuid128, fields->svc_data_uuid128_len);
-        printf("\n");
-    }
-
-    if (fields->uri != NULL) {
-        printf("    uri=");
-        print_bytes(fields->uri, fields->uri_len);
-        printf("\n");
-    }
-
-    if (fields->mfg_data != NULL) {
-        printf("    mfg_data=");
-        print_bytes(fields->mfg_data, fields->mfg_data_len);
-        printf("\n");
-    }
-}
-
-static int
-scan_event(struct ble_gap_event *event, void *arg)
+static int scan_event(struct ble_gap_event *event, void *arg)
 {
     struct ble_hs_adv_fields fields;
+    struct scan_msg msg;
     int rc;
+
     switch (event->type) {
     /* advertising report has been received during discovery procedure */
     case BLE_GAP_EVENT_DISC:
@@ -233,7 +95,13 @@ scan_event(struct ble_gap_event *event, void *arg)
         if (rc != 0) {
             return 0;
         }
-        print_adv_fields(&fields);
+        memcpy(msg.addr, event->disc.addr.val, 6);
+        msg.rssi = event->disc.rssi;
+
+        /* Non-blocking queue so that the nimble host can keep up with SDC,
+         * if the queue is full it will silently drop the corresponding data
+         */
+        xQueueSend(scan_q, &msg, 0);
         return 0;
     /* discovery procedure has terminated */
     case BLE_GAP_EVENT_DISC_COMPLETE:
@@ -244,17 +112,17 @@ scan_event(struct ble_gap_event *event, void *arg)
     }
 }
 
-static void
-scan(void)
+static void scan(void)
 {
     /* set scan parameters */
-    struct ble_gap_disc_params scan_params;
-    scan_params.itvl = 500;
-    scan_params.window = 250;
-    scan_params.filter_policy = 0;
-    scan_params.limited = 0;
-    scan_params.passive = 1;
-    scan_params.filter_duplicates = 1;
+    struct ble_gap_disc_params scan_params = {
+        .itvl = 1000, /* is multiplied by 0.625 ms */
+        .window = 10, /* is multiplied by 0.625 ms, must be smaller or equal to interval */
+        .filter_policy = 0,
+        .limited = 0,
+        .passive = 1,
+        .filter_duplicates = 1
+    };
     /* performs discovery procedure; value of own_addr_type is hard-coded,
        because NRPA is used */
     ble_gap_disc(BLE_OWN_ADDR_RANDOM, 1000, &scan_params, scan_event, NULL);
@@ -275,53 +143,77 @@ on_reset(int reason)
 {
 }
 
+static void
+ble_host_task(void *param)
+{
+    (void)param;
+
+    /* All NimBLE + controller bring-up runs here, inside the task, after the
+     * scheduler has started, for two reasons:
+     *
+     *  1. The GRTC is shared between MPSL (radio timing) and the FreeRTOS tick
+     *     (vPortSetupTimerInterrupt in port.c). The tick setup runs first as
+     *     part of vTaskStartScheduler() and does the one-and-only
+     *     nrfx_grtc_init(), so grtc_lfclk_init() here finds it already running
+     *     and skips re-init. Initialising the controller before the scheduler
+     *     made the tick's nrfx_grtc_init() return -EALREADY, tripping a
+     *     configASSERT() that hung the CPU (watchdog reset, no advertising).
+     *
+     *  2. nimble_port_run() blocks with portMAX_DELAY, only valid from a real
+     *     task once the scheduler is running. */
+    printf("[APP] ble_host_task: init start\n");
+
+    /*** Stage 0: os_pkg_init (kernel/os) */
+    nimble_port_init();
+
+    /*** Stage 250: ble_transport_init (nimble/transport) */
+    ble_transport_init();
+
+    /*** Stage 251: ble_transport_hs_init (nimble/transport) */
+    ble_transport_hs_init();
+
+    /*** Stage 301: ble_svc_gap_init (nimble/host/services/gap) */
+    ble_svc_gap_init();
+
+    /*** Stage 302: ble_svc_gatt_init (nimble/host/services/gatt) */
+    ble_svc_gatt_init();
+
+    ble_hs_cfg.sync_cb = on_sync;
+    ble_hs_cfg.reset_cb = on_reset;
+
+    scan_q = xQueueCreate(SCAN_Q_DEPTH, sizeof(struct scan_msg));
+    assert(scan_q != NULL);
+
+    BaseType_t pok = xTaskCreate(scan_print_task, "scan_pr",
+                                 SCAN_PRINT_TASK_STACK_WORDS, NULL,
+                                 SCAN_PRINT_TASK_PRIORITY, NULL);
+    assert(pok == pdPASS);
+
+    printf("[APP] ble_host_task: entering nimble_port_run\n");
+    nimble_port_run();
+
+    /* Only reached if the host is torn down. */
+    vTaskDelete(NULL);
+}
+
 int main(void)
 {
     int rc;
-    console_init();
-
-    /* Initialize all packages. */
-    //sysinit();
+    theseus_console_init();
 
     rc = theseus_rng_init();
     if(rc) {
         return rc;
     }
-     /*** Stage 0 */
-    /* 0.0: os_pkg_init (kernel/os) */
-    //os_mempool_module_init();
-    //os_msys_init();
-    nimble_port_init();
 
-    /*** Stage 250 */
-    /* 250.0: ble_transport_init (nimble/transport) */
-    ble_transport_init();
+    BaseType_t ok = xTaskCreate(ble_host_task, "ble_hs",
+                                BLE_HOST_TASK_STACK_WORDS, NULL,
+                                BLE_HOST_TASK_PRIORITY, NULL);
+    printf("[APP] xTaskCreate(ble_hs) ok=%ld\n", (long)ok);
+    assert(ok == pdPASS);
 
-    /* [$before:ble_transport_hs_init]: ble_ll_init (nimble/controller) */
-    /* [$before:ble_transport_ll_init]: ble_ll_init (nimble/controller) */
-    // ble_ll_init();
-
-    /*** Stage 251 */
-    /* 251.0: ble_transport_hs_init (nimble/transport) */
-    ble_transport_hs_init();
-
-    /*** Stage 301 */
-    /* 301.0: ble_svc_gap_init (nimble/host/services/gap) */
-    ble_svc_gap_init();
-
-    /*** Stage 302 */
-    /* 302.0: ble_svc_gatt_init (nimble/host/services/gatt) */
-    ble_svc_gatt_init();
-
-    /* [$after:ble_transport_hs_init]: ble_transport_ll_init (nimble/transport) */
-    //ble_transport_ll_init();
-
-    ble_hs_cfg.sync_cb = on_sync;
-    ble_hs_cfg.reset_cb = on_reset;
-
-    rc = ble_svc_gap_device_name_set(device_name);
-
-    nimble_port_run();
+    printf("[APP] starting scheduler\n");
+    vTaskStartScheduler();
 
     /* As the last thing, process events from default event queue. */
     while (1) {
