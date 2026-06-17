@@ -22,8 +22,6 @@
 /* BLE */
 #include <nimble/transport/hci_h4.h>
 
-// #include "../../../../../src/fw/drivers/uart.h"
-// #include "../../../../../src/libutil/includes/util/string.h"
 #include "nimble/ble.h"
 #include "nimble/hci_common.h"
 #include "nimble/nimble_npl.h"
@@ -41,6 +39,8 @@
 #include "sdc_soc.h"
 #include <theseus/rng.h>
 #include <nrfx.h>
+#include <theseus/log.h>
+#include <nrfx_grtc.h>
 
 #define BIT(n) (1UL << (n))
 #define BIT_MASK(n) (BIT(n) - 1UL)
@@ -67,8 +67,24 @@ void CLOCK_POWER_IRQHandler(void){
     MPSL_IRQ_CLOCK_Handler();
 }
 
+static SemaphoreHandle_t mpsl_lp_sem;
+
 void SWI03_IRQHandler(void){
-    mpsl_low_priority_process();
+    BaseType_t woken = pdFALSE;
+    xSemaphoreGiveFromISR(mpsl_lp_sem, &woken);
+    portYIELD_FROM_ISR(woken);
+}
+
+/* Task to take sdc callback out of ISR context */
+static void mpsl_lp_task(void *arg){
+    for (;;) {
+        xSemaphoreTake(mpsl_lp_sem, portMAX_DELAY);
+
+        /* The sdc callback is executed in the same context as mpsl_low_priority_process().
+         * therefore it can't be called in an ISR.
+         */
+        mpsl_low_priority_process();
+    }
 }
 
 void mpsl_low_latency_release_callback(void){
@@ -136,19 +152,22 @@ static void sdc_callback_(void) {
       case SDC_HCI_MSG_TYPE_NONE:
         len = buf[1] + 2;
         struct ble_hci_ev *hci_ev = ble_transport_alloc_evt(0);
+        if (hci_ev == NULL) {
+          continue;
+        }
         struct ble_hci_ev_command_complete *cmd_complete = (void *)hci_ev->data;
         cmd_complete->status = 0;
         cmd_complete->num_packets = 1;
         cmd_complete->opcode = BLE_HCI_OPCODE_NOP;
         hci_ev->opcode = BLE_HCI_EVCODE_COMMAND_COMPLETE;
         hci_ev->length = sizeof(struct ble_hci_ev_command_complete);
+        OS_ENTER_CRITICAL(sr);
+        rc = ble_transport_to_hs_evt(hci_ev);
+        OS_EXIT_CRITICAL(sr);
         if (rc != 0) {
           ble_transport_free(hci_ev);
           return;
         }
-        OS_ENTER_CRITICAL(sr);
-        ble_transport_to_hs_evt(hci_ev);
-        OS_EXIT_CRITICAL(sr);
         return;
       case SDC_HCI_MSG_TYPE_DATA:
         len = le16toh(length_buf) + 4;
@@ -165,15 +184,27 @@ static void sdc_callback_(void) {
         break;
       case SDC_HCI_MSG_TYPE_EVT:
         len = buf[1] + 2;
-        void *m_evt = ble_transport_alloc_evt(0);
-        memcpy(m_evt, &buf[0], len);
-        if (rc != 0) {
-          ble_transport_free(m_evt);
-          return;
+
+        /* Advertising reports are floody and safe to drop: route them to the
+         * discardable pool so they can never exhaust RAM. Everything else
+        * (command complete/status, conn events, ...) must use the reserved pool. */
+        int discardable = (buf[0] == BLE_HCI_EVCODE_LE_META &&
+                          (buf[2] == BLE_HCI_LE_SUBEV_ADV_RPT ||
+                           buf[2] == BLE_HCI_LE_SUBEV_EXT_ADV_RPT));
+
+        void *m_evt = ble_transport_alloc_evt(discardable);
+        if (m_evt == NULL) {
+            continue;
         }
+
+        memcpy(m_evt, &buf[0], len);
         OS_ENTER_CRITICAL(sr);
-        ble_transport_to_hs_evt(m_evt);
+        rc = ble_transport_to_hs_evt(m_evt);
         OS_EXIT_CRITICAL(sr);
+        if (rc != 0) {
+            ble_transport_free(m_evt);
+            continue;
+        }
         break;
       case SDC_HCI_MSG_TYPE_ISO:
         len = le16toh(length_buf) + 4;
@@ -199,8 +230,52 @@ static void rand_poll_(uint8_t *buf, uint8_t size){
   (void)theseus_PRNG_get(buf, size);
 }
 
+/* Start the LF clock + GRTC used by the SoftDevice Controller / MPSL for radio timing.
+ * Doing it here, once, before mpsl_init() keeps the BLE samples from having to touch the GRTC themselves. */
+static void grtc_lfclk_init(void)
+{
+    uint8_t grtc_channel;
+
+    /* The GRTC is shared: MPSL uses it for radio timing and the FreeRTOS tick (vPortSetupTimerInterrupt() in port.c) uses it as the kernel tick.
+     * Only one nrfx_grtc_init() is allowed; a second returns -EALREADY.
+     *
+     * If BLE is brought up from a task (scheduler already running),
+     * the tick setup has already initialised and started the GRTC,
+     * so defer to it. */
+    if (nrfx_grtc_init_check()) {
+        return;
+    }
+
+    /* Drive the GRTC from the external LF crystal (LFXO) for a stable clock. */
+    nrfx_grtc_clock_source_set(NRF_GRTC_CLKSEL_LFXO);
+
+    /* Bring up the GRTC step by step,
+     * assert() halts loudly so a broken clock is caught here rather than failing silently later inside MPSL. */
+
+    /* Init the driver (IRQ priority 0). */
+    assert(nrfx_grtc_init(0) == 0);
+
+    /* Start the 1 MHz system counter (claims an unused compare channel). */
+    assert(nrfx_grtc_syscounter_start(false, &grtc_channel) == 0);
+
+    /* Sanity check: counter is up and its value can be trusted. */
+    assert(nrfx_grtc_ready_check());
+}
+
 void ble_transport_ll_init(void) {
   int32_t err;
+
+  /* Bring up the LFXO + GRTC before the controller needs them. */
+  grtc_lfclk_init();
+
+  mpsl_lp_sem = xSemaphoreCreateBinary();
+  if (mpsl_lp_sem == NULL) {
+    return;
+  }
+
+  xTaskCreate(mpsl_lp_task, "mpsl_Task",
+              configMINIMAL_STACK_SIZE + 1024, NULL,
+              tskIDLE_PRIORITY + 3, NULL);
 
   err = mpsl_init(NULL, SWI03_IRQn, fault_handler_);
   if (err < 0) {
@@ -222,6 +297,9 @@ void ble_transport_ll_init(void) {
   sdc_support_peripheral();
 
   sdc_support_le_2m_phy();
+
+  /* Support HCI commands related to scanning */
+  sdc_support_scan();
 
 
   sdc_cfg_t cfg = {.peripheral_count = {.count = 1}};
@@ -387,10 +465,11 @@ int ble_transport_to_ll_cmd_impl(void *buf) {
           break;
 
         case BLE_HCI_OCF_IP_RD_LOC_SUPP_CMD:
-          // err = sdc_hci_cmd_ip_read_local_supported_commands(rspbuf);
-          // hci_ev->length = sizeof(sdc_hci_cmd_ip_read_local_supported_commands_return_t);
-          // break;
-          // TODO: Fix undefined reference
+          memset(rspbuf, 0, 64);
+          err = 0;
+          hci_ev->length = 64;
+          break;
+         // TODO: Fix undefined reference
 
         case BLE_HCI_OCF_IP_RD_LOC_SUPP_FEAT:
           err = sdc_hci_cmd_ip_read_local_supported_features(rspbuf);
