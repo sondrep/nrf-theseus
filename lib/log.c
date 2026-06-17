@@ -11,6 +11,7 @@
 #include <FreeRTOS.h>
 #include <semphr.h>
 #include <theseus/log.h>
+#include <theseus/module.h>
 
 #define BOARD_CONSOLE_TX_PIN     NRF_GPIO_PIN_MAP(1, 4)
 #define BOARD_CONSOLE_UARTE_INST NRF_UARTE20
@@ -62,7 +63,7 @@ FILE *const stderr = &uart_file;
 
 /* ---- Public API ------------------------------------------------------- */
 
-void theseus_console_init(void)
+static int theseus_console_init(void)
 {
     xPrintMutex = xSemaphoreCreateMutex();
     configASSERT(xPrintMutex);
@@ -81,4 +82,8 @@ void theseus_console_init(void)
     };
     nrf_uarte_configure(BOARD_CONSOLE_UARTE_INST, &cfg);
     nrf_uarte_enable(BOARD_CONSOLE_UARTE_INST);
+
+    return 0;
 }
+
+THESEUS_MODULE_SET(log) = {.init = theseus_console_init};

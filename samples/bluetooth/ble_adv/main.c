@@ -32,6 +32,7 @@
 #include "mpsl.h"
 #include <theseus/rng.h>
 #include <theseus/log.h>
+#include <theseus/module.h>
 #include <nrfx_grtc.h>
 
 static const char *device_name = "Apache Asil";
@@ -145,7 +146,7 @@ on_reset(int reason)
 int main(void)
 {
     int rc;
-    theseus_console_init();
+    theseus_modules_init();
 
     grtc_lfclk_init();
 

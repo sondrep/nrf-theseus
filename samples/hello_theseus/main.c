@@ -4,6 +4,7 @@
 #include <FreeRTOS.h>
 #include <task.h>
 #include <theseus/log.h>
+#include <theseus/module.h>
 
 
 void helloTask1(void *pvParameters) {
@@ -33,7 +34,7 @@ void helloTask4(void *pvParameters) {
 
 int main(void)
 {
-    theseus_console_init();
+    theseus_modules_init();
 
     xTaskCreate(helloTask1, "Theseus",   configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, NULL);
     xTaskCreate(helloTask2, "Epidaurus", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, NULL);
