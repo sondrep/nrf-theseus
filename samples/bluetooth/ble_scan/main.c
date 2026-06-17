@@ -26,8 +26,7 @@
 #include "services/gatt/ble_svc_gatt.h"
 #include "nimble/nimble_port.h"
 #include "mpsl.h"
-#include <theseus/rng.h>
-#include <theseus/log.h>
+#include <theseus/module.h>
 #include <nrfx_grtc.h>
 #include <FreeRTOS.h>
 #include <task.h>
@@ -58,7 +57,7 @@ scan_print_task(void *param)
     for (;;) {
         /* Block until a report is available; this task owns all printf cost. */
         if (xQueueReceive(scan_q, &msg, portMAX_DELAY) == pdTRUE) {
-            printf("[APP] UUID %02x:%02x:%02x:%02x:%02x:%02x rssi=%d \n",
+            printf("[APP] Address: %02x:%02x:%02x:%02x:%02x:%02x rssi=%d \n",
                    msg.addr[5], msg.addr[4], msg.addr[3],
                    msg.addr[2], msg.addr[1], msg.addr[0],
                    msg.rssi);
@@ -199,12 +198,6 @@ ble_host_task(void *param)
 int main(void)
 {
     int rc;
-    theseus_console_init();
-
-    rc = theseus_rng_init();
-    if(rc) {
-        return rc;
-    }
 
     BaseType_t ok = xTaskCreate(ble_host_task, "ble_hs",
                                 BLE_HOST_TASK_STACK_WORDS, NULL,

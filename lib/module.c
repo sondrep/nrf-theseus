@@ -31,3 +31,7 @@ int theseus_modules_init(void)
 
 	return ret;
 }
+
+void __attribute__ ((constructor)) init(){
+	theseus_modules_init();
+}

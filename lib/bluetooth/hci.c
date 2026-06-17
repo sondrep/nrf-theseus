@@ -1261,9 +1261,5 @@ int ble_transport_to_ll_cmd_impl(void *buf) {
 
   ble_transport_to_hs_evt(hci_ev);
 
-  /* Return value reports only that the command reached the controller,
-   * the actual status travels in the Command Complete event posted above.
-   * Returning the controller status here would make ble_hs_hci_cmd_tx() abort before consuming the ack,
-   * desyncing the ack semaphore and breaking every subsequent command. */
-  return 0;
+  return -((int)(err));
 }

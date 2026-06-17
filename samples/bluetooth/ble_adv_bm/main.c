@@ -147,15 +147,8 @@ on_reset(int reason)
 int main(void)
 {
     int rc;
-    theseus_modules_init();
 
     printf("\n[APP] ===== ble_adv_bm boot =====\n");
-
-    rc = theseus_rng_init();
-    printf("[APP] theseus_rng_init rc=%d\n", rc);
-    if(rc) {
-        return rc;
-    }
 
     /* No scheduler is ever started; all NimBLE + controller bring-up runs here
      * in thread mode. Controller init calls grtc_lfclk_init(), which performs

@@ -105,7 +105,6 @@ void TaskBlink(void *arg)
 int main(void)
 {
     /* Set up the GPIOTE hardware once before any task uses it */
-    theseus_modules_init();
     nrfx_gpiote_init(&gpiote, GPIOTE_IRQ_PRIORITY);
 
     /* Create one blink task per LED, each with its own settings */

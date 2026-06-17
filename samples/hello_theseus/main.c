@@ -52,8 +52,6 @@ void helloTask4(void *pvParameters) {
 
 int main(void)
 {
-    theseus_modules_init();
-
     xTaskCreate(helloTask1, "Theseus",   configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, NULL);
     xTaskCreate(helloTask2, "Epidaurus", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, NULL);
     xTaskCreate(helloTask3, "Isthmian",  configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, NULL);

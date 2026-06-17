@@ -197,15 +197,8 @@ ble_host_task(void *param)
 int main(void)
 {
     int rc;
-    theseus_modules_init();
 
     printf("\n[APP] ===== ble_adv_rtos boot =====\n");
-
-    rc = theseus_rng_init();
-    printf("[APP] theseus_rng_init rc=%d\n", rc);
-    if(rc) {
-        return rc;
-    }
 
     /* Create the host task and hand control to FreeRTOS. The scheduler brings
      * up the GRTC tick before the task body runs, so controller init inside
