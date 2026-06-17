@@ -81,5 +81,3 @@ if(CONFIG_PICOLIBC_IO_FLOAT)
     set(__SEMIHOST           0)
 
 add_subdirectory(../picolibc picolibc)
-
-target_link_libraries(${EXECUTABLE_NAME} PUBLIC c)
