@@ -576,10 +576,6 @@ void vPortSetupTimerInterrupt(void)
     configASSERT(nrfx_grtc_ready_check());
     configASSERT(nrfx_grtc_syscounter_cc_int_enable_check(grtc_channel));
 
-    /* Zero the counter, then start it counting. */
-    nrfx_grtc_action_perform(NRFX_GRTC_ACTION_CLEAR);
-    nrfx_grtc_action_perform(NRFX_GRTC_ACTION_START);
-
     /* Point the channel at our tick handler and arm the very first tick,
      * the handler has obligation itself to re-arms every tick after this.
      */

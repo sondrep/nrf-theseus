@@ -18,6 +18,9 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
 
 /* BLE */
 #include <nimble/transport/hci_h4.h>
@@ -49,7 +52,6 @@
 #define bt_acl_flags(h) ((h) >> 12)
 #define bt_acl_flags_bc(f) ((f) >> 2)
 #define bt_acl_flags_pb(f) ((f) & BIT_MASK(2))
-
 
 void RADIO_0_IRQHandler(void){
     MPSL_IRQ_RADIO_Handler();
@@ -96,14 +98,13 @@ void mpsl_low_latency_acquire_callback(void){
 }
 
 int ble_transport_to_ll_iso_impl(struct os_mbuf *om) {
-  /* From my understanding, os_mbuf works similarly to an arena allocator. I iterate over all the
-   * nodes and copy them to a continuous chunk of memory */
+  /* Flatten the mbuf chain into one contiguous buffer, prefixed with the H4 type byte. */
   size_t len = 1;
   for (struct os_mbuf *m = om; m; m = SLIST_NEXT(m, om_next)) {
     len += m->om_len;
   }
 
-  uint8_t *buf = malloc(len);  // TODO: Don't use malloc
+  uint8_t *buf = malloc(len);
 
   buf[0] = HCI_H4_ISO;
 
@@ -121,8 +122,8 @@ int ble_transport_to_ll_iso_impl(struct os_mbuf *om) {
 }
 
 static void fault_handler_(const char *file, const uint32_t line) {
+  printf("MPSL fault: %s:%lu\n", file ? file : "?", (unsigned long)line);
   assert(0);
-  return;  // TODO: Log error
 }
 
 static void sdc_callback_(void) {
@@ -145,8 +146,8 @@ static void sdc_callback_(void) {
     hf = le16toh(handle_buf);
     handle = bt_acl_handle(hf);
     flags = bt_acl_flags(hf);
-    pb = bt_acl_flags_pb(flags);  // packet boundary
-    bc = bt_acl_flags_bc(flags);  // broadcast
+    pb = bt_acl_flags_pb(flags);  /* packet boundary */
+    bc = bt_acl_flags_bc(flags);  /* broadcast */
 
     switch (msg_type) {
       case SDC_HCI_MSG_TYPE_NONE:
@@ -326,7 +327,7 @@ void ble_transport_ll_init(void) {
 
   hci_ev = ble_transport_alloc_evt(0);
   if (hci_ev) {
-    /* Create a command complete event with a NO-OP opcode */
+    /* Post a NOP command-complete so the host knows the controller is up. */
     hci_ev->opcode = BLE_HCI_EVCODE_COMMAND_COMPLETE;
 
     hci_ev->length = sizeof(*ev);
@@ -344,6 +345,7 @@ void ble_transport_ll_init(void) {
 int ble_transport_to_ll_acl_impl(struct os_mbuf *om) {
   int sr;
 
+  /* Flatten the mbuf chain into one contiguous buffer. */
   size_t len = 0;
   for (struct os_mbuf *m = om; m; m = SLIST_NEXT(m, om_next)) {
     len += m->om_len;
@@ -401,7 +403,7 @@ int ble_transport_to_ll_cmd_impl(void *buf) {
       break;
 
     case 0x02:
-      /*There doesn't seem to be anything for this ogf*/
+      /* No commands mapped for this OGF. */
       break;
 
     case 0x03:
@@ -465,11 +467,14 @@ int ble_transport_to_ll_cmd_impl(void *buf) {
           break;
 
         case BLE_HCI_OCF_IP_RD_LOC_SUPP_CMD:
-          memset(rspbuf, 0, 64);
+          /* This SDC variant does not export sdc_hci_cmd_ip_read_local_supported_commands(),
+           * so return an all-zero (no optional commands) map.
+           * The host needs the full 64-byte response,
+           * a short reply triggers a host reset that tears advertising back down. */
+          memset(rspbuf, 0, sizeof(sdc_hci_cmd_ip_read_local_supported_commands_return_t));
           err = 0;
-          hci_ev->length = 64;
+          hci_ev->length = sizeof(sdc_hci_cmd_ip_read_local_supported_commands_return_t);
           break;
-         // TODO: Fix undefined reference
 
         case BLE_HCI_OCF_IP_RD_LOC_SUPP_FEAT:
           err = sdc_hci_cmd_ip_read_local_supported_features(rspbuf);
@@ -505,7 +510,7 @@ int ble_transport_to_ll_cmd_impl(void *buf) {
       break;
 
     case 0x06:
-      /*There doesn't seem to be anything for this ogf*/
+      /* No commands mapped for this OGF. */
       break;
 
     case 0x08:
@@ -646,10 +651,8 @@ int ble_transport_to_ll_cmd_impl(void *buf) {
           break;
 
         case BLE_HCI_OCF_LE_RD_SUPP_STATES:
-          // err = sdc_hci_cmd_le_read_supported_states(rspbuf);
-          // hci_ev->length = sizeof(sdc_hci_cmd_le_read_supported_states_return_t);
-          // break;
-          // TODO: Fix undefined reference
+          /* TODO: undefined reference to sdc_hci_cmd_le_read_supported_states(),
+           * falls through to the test-command stubs below. */
 
         case BLE_HCI_OCF_LE_RX_TEST:
           hci_ev->length = 0;
@@ -1258,5 +1261,9 @@ int ble_transport_to_ll_cmd_impl(void *buf) {
 
   ble_transport_to_hs_evt(hci_ev);
 
-  return -((int)(err));
+  /* Return value reports only that the command reached the controller,
+   * the actual status travels in the Command Complete event posted above.
+   * Returning the controller status here would make ble_hs_hci_cmd_tx() abort before consuming the ack,
+   * desyncing the ack semaphore and breaking every subsequent command. */
+  return 0;
 }
