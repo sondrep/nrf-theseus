@@ -12,7 +12,7 @@
 THESEUS_MODULE_START_DECLARE
 THESEUS_MODULE_STOP_DECLARE
 
-int theseus_modules_init(void)
+static int modules_init(void)
 {
 	const struct theseus_module *a = THESEUS_MODULE_START;
 	const struct theseus_module *b = THESEUS_MODULE_STOP;
@@ -32,6 +32,7 @@ int theseus_modules_init(void)
 	return ret;
 }
 
-void __attribute__ ((constructor)) init(){
-	theseus_modules_init();
+static void __attribute__((constructor)) init()
+{
+	(void)modules_init();
 }

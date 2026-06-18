@@ -21,11 +21,12 @@ extern SemaphoreHandle_t xPrintMutex;
  * and interleave output from another task. Holding the mutex across the whole
  * call keeps each message intact.
  */
-#define LOG(...) do {                               \
-        xSemaphoreTake(xPrintMutex, portMAX_DELAY); \
-        printf(__VA_ARGS__);                        \
-        fflush(stdout);                             \
-        xSemaphoreGive(xPrintMutex);                \
-    } while (0)
+#define LOG(...)                                                                                   \
+	do {                                                                                       \
+		xSemaphoreTake(xPrintMutex, portMAX_DELAY);                                        \
+		printf(__VA_ARGS__);                                                               \
+		fflush(stdout);                                                                    \
+		xSemaphoreGive(xPrintMutex);                                                       \
+	} while (0)
 
 #endif /* LOG_H */

@@ -1,1 +1,2 @@
-add_library(rng EXCLUDE_FROM_ALL rng.c)
+target_sources(rng PRIVATE rng.c)
+target_link_libraries(rng PRIVATE nrfx)

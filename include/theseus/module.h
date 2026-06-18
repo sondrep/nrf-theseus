@@ -1,11 +1,5 @@
-
-/**
- * @brief Initialize all the modules in theseus
- *
- * @return 0 if all modules initialized successfully, otherwise, returns the error code of the first
- * module that failed initialization
- */
-int theseus_modules_init(void);
+#ifndef THESEUS_MODULE_H
+#define THESEUS_MODULE_H
 
 typedef int (*theseus_module_callback)(void);
 
@@ -49,10 +43,12 @@ struct theseus_module {
  * @brief Set a module in the thesues modules section.
  *
  * @example
- * THESEUS_MODULE_REF(log) = {.init = theseus_console_init};
+ * THESEUS_MODULE_SET(log) = {.init = theseus_console_init};
  *
  * @param module_name name of the module that you wish to set.
  */
 #define THESEUS_MODULE_SET(module_name)                                                            \
 	static const struct theseus_module THESEUS_CONCAT2(__theseus_mod_, module_name)            \
 		THESEUS_ATTRIBUTE_SECTION(theseus_modules) THESEUS_ATTRIBUTE_USED
+
+#endif

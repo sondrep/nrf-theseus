@@ -12,12 +12,9 @@ cmake_minimum_required(VERSION 3.15)
 # Paths to the west-managed dependency checkouts (siblings of this repo).
 # ====================================================================================================
 set(FREERTOS_KERNEL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../FreeRTOS-Kernel")
-set(NIMBLE_PATH          "${CMAKE_CURRENT_SOURCE_DIR}/../mynewt-nimble")
-set(MYNEWT_CORE_PATH     "${CMAKE_CURRENT_SOURCE_DIR}/../mynewt-core")
 set(NRFX_PATH            "${CMAKE_CURRENT_SOURCE_DIR}/../nrfx")
 set(NRFXLIB_PATH         "${CMAKE_CURRENT_SOURCE_DIR}/../nrfxlib")
 set(CMSIS_PATH           "${CMAKE_CURRENT_SOURCE_DIR}/../cmsis")
-set(TINYCRYPT_PATH       "${CMAKE_CURRENT_SOURCE_DIR}/../tinycrypt")
 
 set(MDK_DIR        ${CMAKE_SOURCE_DIR}/../nrfx/bsp/stable/mdk/)
 set(C_INCLUDE_PATH ${CMAKE_CURRENT_LIST_DIR}/include)
@@ -43,7 +40,7 @@ set(EXECUTABLE_NAME ${PROJECT_NAME}.elf)
 
 # The MCU startup/system file is the executable's first source.
 add_executable(${EXECUTABLE_NAME} ${MDK_DIR}/system_nrf54l.c)
-add_library(nrfx)
+add_library(nrfx EXCLUDE_FROM_ALL)
 
 # ====================================================================================================
 # Build target (board)
@@ -147,6 +144,8 @@ target_sources(nrfx PRIVATE
     ${NRFX_PATH}/helpers/nrfx_flag32_allocator.c
 )
 target_compile_definitions(nrfx PRIVATE NRFX_CLOCK_ENABLED=1)
+target_link_libraries(nrfx PUBLIC c)
+target_link_libraries(${EXECUTABLE_NAME} PUBLIC nrfx c)
 
 
 
@@ -193,13 +192,6 @@ target_link_options(${EXECUTABLE_NAME} PRIVATE
     -T ${LINKER_SCRIPT}
     -L ${MDK_DIR}/
     --specs=nosys.specs
-)
-
-target_link_libraries(${EXECUTABLE_NAME} PUBLIC
-    tinycrypt
-    ${NRFXLIB_PATH}/softdevice_controller/lib/nrf54l/hard-float/libsoftdevice_controller_multirole.a
-    ${NRFXLIB_PATH}/mpsl/lib/nrf54l/hard-float/libmpsl.a
-    ${NRFXLIB_PATH}/mpsl/fem/common/lib/nrf54l/hard-float/libmpsl_fem_common.a
 )
 
 # NimBLE/mynewt code targets C90 for the kernel.

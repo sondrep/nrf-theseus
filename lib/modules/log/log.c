@@ -13,9 +13,9 @@
 #include <theseus/log.h>
 #include <theseus/module.h>
 
-#define BOARD_CONSOLE_TX_PIN     NRF_GPIO_PIN_MAP(1, 4)
+#define BOARD_CONSOLE_TX_PIN	 NRF_GPIO_PIN_MAP(1, 4)
 #define BOARD_CONSOLE_UARTE_INST NRF_UARTE20
-#define CONSOLE_BAUD             NRF_UARTE_BAUDRATE_115200
+#define CONSOLE_BAUD		 NRF_UARTE_BAUDRATE_115200
 
 SemaphoreHandle_t xPrintMutex;
 static volatile uint8_t tx_byte __attribute__((aligned(4)));
@@ -25,65 +25,66 @@ static volatile uint8_t tx_byte __attribute__((aligned(4)));
 
 static int uart_putc(char c, FILE *stream)
 {
-    (void)stream;
+	(void)stream;
 
-    /* Convert a Unix newline into a terminal-friendly one.
-     *
-     * C strings terminate a line with a single LF ('\n'),
-     * whereas most serial terminals expect CR + LF ('\r\n'):
-     * the CR returns the cursor to the start of the line and the LF advances it one row.
-     * Omitting the CR produces the familiar "staircase" effect.
-     *
-     * Therefore, when the application sends '\n',
-     * we emit '\r' first and then fall through to send the '\n' below. */
-    if (c == '\n') {
-        tx_byte = (uint8_t)'\r';
-        nrf_uarte_tx_buffer_set(BOARD_CONSOLE_UARTE_INST, (uint8_t const *)&tx_byte, 1);
-        nrf_uarte_event_clear(BOARD_CONSOLE_UARTE_INST, NRF_UARTE_EVENT_ENDTX);
-        nrf_uarte_task_trigger(BOARD_CONSOLE_UARTE_INST, NRF_UARTE_TASK_STARTTX);
-        while (!nrf_uarte_event_check(BOARD_CONSOLE_UARTE_INST, NRF_UARTE_EVENT_ENDTX));
-    }
+	/* Convert a Unix newline into a terminal-friendly one.
+	 *
+	 * C strings terminate a line with a single LF ('\n'),
+	 * whereas most serial terminals expect CR + LF ('\r\n'):
+	 * the CR returns the cursor to the start of the line and the LF advances it one row.
+	 * Omitting the CR produces the familiar "staircase" effect.
+	 *
+	 * Therefore, when the application sends '\n',
+	 * we emit '\r' first and then fall through to send the '\n' below. */
+	if (c == '\n') {
+		tx_byte = (uint8_t)'\r';
+		nrf_uarte_tx_buffer_set(BOARD_CONSOLE_UARTE_INST, (uint8_t const *)&tx_byte, 1);
+		nrf_uarte_event_clear(BOARD_CONSOLE_UARTE_INST, NRF_UARTE_EVENT_ENDTX);
+		nrf_uarte_task_trigger(BOARD_CONSOLE_UARTE_INST, NRF_UARTE_TASK_STARTTX);
+		while (!nrf_uarte_event_check(BOARD_CONSOLE_UARTE_INST, NRF_UARTE_EVENT_ENDTX))
+			;
+	}
 
-    tx_byte = (uint8_t)c;
-    nrf_uarte_tx_buffer_set(BOARD_CONSOLE_UARTE_INST, (uint8_t const *)&tx_byte, 1);
-    nrf_uarte_event_clear(BOARD_CONSOLE_UARTE_INST, NRF_UARTE_EVENT_ENDTX);
-    nrf_uarte_task_trigger(BOARD_CONSOLE_UARTE_INST, NRF_UARTE_TASK_STARTTX);
-    while (!nrf_uarte_event_check(BOARD_CONSOLE_UARTE_INST, NRF_UARTE_EVENT_ENDTX));
+	tx_byte = (uint8_t)c;
+	nrf_uarte_tx_buffer_set(BOARD_CONSOLE_UARTE_INST, (uint8_t const *)&tx_byte, 1);
+	nrf_uarte_event_clear(BOARD_CONSOLE_UARTE_INST, NRF_UARTE_EVENT_ENDTX);
+	nrf_uarte_task_trigger(BOARD_CONSOLE_UARTE_INST, NRF_UARTE_TASK_STARTTX);
+	while (!nrf_uarte_event_check(BOARD_CONSOLE_UARTE_INST, NRF_UARTE_EVENT_ENDTX))
+		;
 
-    return 0;
+	return 0;
 }
 
 /* ---- picolibc stdio streams ------------------------------------------- */
 
 static FILE uart_file = FDEV_SETUP_STREAM(uart_putc, NULL, NULL, _FDEV_SETUP_WRITE);
 
-FILE *const stdin  = NULL;
+FILE *const stdin = NULL;
 FILE *const stdout = &uart_file;
 FILE *const stderr = &uart_file;
 
 /* ---- Public API ------------------------------------------------------- */
 
-static int theseus_console_init(void)
+static int console_init(void)
 {
-    xPrintMutex = xSemaphoreCreateMutex();
-    configASSERT(xPrintMutex);
+	xPrintMutex = xSemaphoreCreateMutex();
+	configASSERT(xPrintMutex);
 
-    nrf_gpio_pin_set(BOARD_CONSOLE_TX_PIN);
-    nrf_gpio_cfg_output(BOARD_CONSOLE_TX_PIN);
+	nrf_gpio_pin_set(BOARD_CONSOLE_TX_PIN);
+	nrf_gpio_cfg_output(BOARD_CONSOLE_TX_PIN);
 
-    nrf_uarte_txrx_pins_set(BOARD_CONSOLE_UARTE_INST,
-                            BOARD_CONSOLE_TX_PIN,
-                            NRF_UARTE_PSEL_DISCONNECTED);
-    nrf_uarte_baudrate_set(BOARD_CONSOLE_UARTE_INST, CONSOLE_BAUD);
+	nrf_uarte_txrx_pins_set(BOARD_CONSOLE_UARTE_INST, BOARD_CONSOLE_TX_PIN,
+				NRF_UARTE_PSEL_DISCONNECTED);
+	nrf_uarte_baudrate_set(BOARD_CONSOLE_UARTE_INST, CONSOLE_BAUD);
 
-    nrf_uarte_config_t cfg = {
-        .hwfc   = NRF_UARTE_HWFC_DISABLED,
-        .parity = NRF_UARTE_PARITY_EXCLUDED,
-    };
-    nrf_uarte_configure(BOARD_CONSOLE_UARTE_INST, &cfg);
-    nrf_uarte_enable(BOARD_CONSOLE_UARTE_INST);
+	nrf_uarte_config_t cfg = {
+		.hwfc = NRF_UARTE_HWFC_DISABLED,
+		.parity = NRF_UARTE_PARITY_EXCLUDED,
+	};
+	nrf_uarte_configure(BOARD_CONSOLE_UARTE_INST, &cfg);
+	nrf_uarte_enable(BOARD_CONSOLE_UARTE_INST);
 
-    return 0;
+	return 0;
 }
 
-THESEUS_MODULE_SET(log) = {.init = theseus_console_init};
+THESEUS_MODULE_SET(log) = {.init = console_init};

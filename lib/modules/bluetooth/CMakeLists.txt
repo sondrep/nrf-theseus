@@ -1,16 +1,17 @@
-add_library(bluetooth EXCLUDE_FROM_ALL)
-
-target_sources(bluetooth PRIVATE hci.c)
-
 # ====================================================================================================
 # NimBLE (Bluetooth host/controller)
 # Sources are globbed
 # tests, apps, mesh, audio and the per-driver transport files are excluded, and only the single transport.c shim is kept.
 # Generated syscfg headers come in via NIMBLE_SYSCFG_INCLUDE (set by west).
 # ====================================================================================================
+target_sources(bluetooth PRIVATE hci.c)
+
+set(NIMBLE_PATH          "${CMAKE_SOURCE_DIR}/../mynewt-nimble")
+set(MYNEWT_CORE_PATH     "${CMAKE_SOURCE_DIR}/../mynewt-core")
+
 if(NOT DEFINED NIMBLE_SYSCFG_INCLUDE)
     message(FATAL_ERROR
-        "NIMBLE_SYSCFG_INCLUDE not set - build with 'west build', not bare cmake.")
+       "NIMBLE_SYSCFG_INCLUDE not set - build with 'west build', not bare cmake.")
 endif()
 
 file(GLOB_RECURSE NIMBLE_SOURCES
@@ -71,38 +72,14 @@ target_compile_definitions(bluetooth PRIVATE
 target_sources(bluetooth PRIVATE ${NIMBLE_SOURCES})
 
 # ====================================================================================================
-# TinyCrypt (crypto primitives used by the BLE stack)
-# ====================================================================================================
-add_library(tinycrypt
-    ${TINYCRYPT_PATH}/lib/source/aes_decrypt.c
-    ${TINYCRYPT_PATH}/lib/source/aes_encrypt.c
-    ${TINYCRYPT_PATH}/lib/source/cbc_mode.c
-    ${TINYCRYPT_PATH}/lib/source/ccm_mode.c
-    ${TINYCRYPT_PATH}/lib/source/cmac_mode.c
-    ${TINYCRYPT_PATH}/lib/source/ctr_mode.c
-    ${TINYCRYPT_PATH}/lib/source/ctr_prng.c
-    ${TINYCRYPT_PATH}/lib/source/ecc_dh.c
-    ${TINYCRYPT_PATH}/lib/source/ecc_dsa.c
-    ${TINYCRYPT_PATH}/lib/source/ecc.c
-    ${TINYCRYPT_PATH}/lib/source/hmac_prng.c
-    ${TINYCRYPT_PATH}/lib/source/hmac.c
-    ${TINYCRYPT_PATH}/lib/source/sha256.c
-    ${TINYCRYPT_PATH}/lib/source/utils.c
-)
-# PUBLIC so the main executable inherits the include path when it links.
-target_include_directories(tinycrypt PUBLIC ${TINYCRYPT_PATH}/lib/include)
-
-# ====================================================================================================
 # Nordic binary libraries (SoftDevice Controller + MPSL)
 # ====================================================================================================
-target_include_directories(bluetooth PRIVATE
-    ${NRFXLIB_PATH}/softdevice_controller/include
-    ${NRFXLIB_PATH}/mpsl/include
-)
+add_subdirectory(${NRFXLIB_PATH}/softdevice_controller SoftDevice)
+add_subdirectory(${NRFXLIB_PATH}/mpsl MPSL)
 
 target_link_libraries(bluetooth PRIVATE
     tinycrypt
-    ${NRFXLIB_PATH}/softdevice_controller/lib/nrf54l/hard-float/libsoftdevice_controller_multirole.a
-    ${NRFXLIB_PATH}/mpsl/lib/nrf54l/hard-float/libmpsl.a
-    ${NRFXLIB_PATH}/mpsl/fem/common/lib/nrf54l/hard-float/libmpsl_fem_common.a
+    mpsl
+    softdevice_controller
+    nrfx freertos_config freertos_kernel c rng log
 )
