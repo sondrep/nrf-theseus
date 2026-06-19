@@ -21,7 +21,6 @@ pkg.deps:
     - "@apache-mynewt-nimble/nimble/host/services/dis"
     - "@apache-mynewt-nimble/nimble/host/services/bleuart"
     - "@apache-mynewt-nimble/nimble/transport"
-    - "@apache-mynewt-nimble/nimble/controller"
 
 $import:
     - "@apache-mynewt-nimble/nimble/transport/syscfg.monitor.yml"
