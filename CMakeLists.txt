@@ -25,7 +25,11 @@ set(MDK_DIR        ${CMAKE_SOURCE_DIR}/../nrfx/bsp/stable/mdk/)
 # without it malloc/sbrk would fail to link with "undefined reference to __aeabi_read_tp".
 set(_HAVE_PICOLIBC_TLS_API 1)
 
-set(CMAKE_BUILD_TYPE Debug)
+if(NOT CMAKE_BUILD_TYPE)
+   set(CMAKE_BUILD_TYPE Debug)
+endif()
+
+set(CMAKE_C_FLAGS_RELEASE "-O2 -Werror")
 
 set(THESEUS_MODULES bluetooth log rng tinycrypt)
 
@@ -101,6 +105,9 @@ endif()
 #   theseus_mark_third_party(<target>)               # silence (-w)
 # ====================================================================================================
 option(THESEUS_UBSAN "UBSan (trap mode) on first-party code" ON)
+if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(THESEUS_UBSAN OFF)
+endif()
 
 # Keep compiler diagnostics colored in the terminal, no matter the generator.
 set(CMAKE_COLOR_DIAGNOSTICS ON)
