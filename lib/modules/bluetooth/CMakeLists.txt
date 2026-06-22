@@ -36,7 +36,9 @@ list(FILTER NIMBLE_SOURCES EXCLUDE REGEX "${NIMBLE_PATH}/apps/.+\\.c")
 list(FILTER NIMBLE_SOURCES EXCLUDE REGEX "${NIMBLE_PATH}/babblesim/.+\\.c")
 list(APPEND NIMBLE_SOURCES "${NIMBLE_PATH}/nimble/transport/src/transport.c")
 
-target_include_directories(bluetooth PUBLIC
+# NimBLE + mynewt-core are third-party:
+# mark their includes SYSTEM so the headers stay quiet even when our strict hci.c (and the sample mains) pull them in.
+target_include_directories(bluetooth SYSTEM PUBLIC
     ${NIMBLE_SYSCFG_INCLUDE}                                   # generated syscfg.h (from west)
     ${NIMBLE_PATH}/porting/nimble/include
     ${NIMBLE_PATH}/porting/npl/freertos/include
@@ -83,3 +85,8 @@ target_link_libraries(bluetooth PRIVATE
     softdevice_controller
     nrfx freertos_config freertos_kernel c rng log
 )
+
+# NimBLE is third-party, so silence the whole target.
+# hci.c is our HCI transport shim, so opt it back into strict warnings + UBSan.
+theseus_mark_third_party(bluetooth)
+theseus_mark_first_party(bluetooth hci.c)
