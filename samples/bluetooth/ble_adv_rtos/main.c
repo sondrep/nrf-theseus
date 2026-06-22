@@ -161,12 +161,6 @@ static void ble_host_task(void *param)
 	/*** Stage 0: os_pkg_init (kernel/os) */
 	nimble_port_init();
 
-	/*** Stage 250: ble_transport_init (nimble/transport) */
-	ble_transport_init();
-
-	/*** Stage 251: ble_transport_hs_init (nimble/transport) */
-	ble_transport_hs_init();
-
 	/*** Stage 301: ble_svc_gap_init (nimble/host/services/gap) */
 	ble_svc_gap_init();
 

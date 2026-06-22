@@ -24,6 +24,12 @@ set(_HAVE_PICOLIBC_TLS_API 1)
 
 set(CMAKE_BUILD_TYPE Debug)
 
+set(THESEUS_MODULES bluetooth log rng tinycrypt)
+
+foreach(module IN LISTS THESEUS_MODULES)
+add_library(${module} EXCLUDE_FROM_ALL)
+endforeach()
+
 # ====================================================================================================
 # Toolchain + project
 # Toolchain must be selected before project() triggers compiler detection.
@@ -69,9 +75,6 @@ add_link_options(-mthumb -mcpu=cortex-m33 -mfloat-abi=hard -mfpu=fpv5-sp-d16 -g3
 target_compile_definitions(nrfx PUBLIC NRF_APPLICATION=1)
 target_include_directories(nrfx PUBLIC ${CMSIS_PATH}/CMSIS/Core/Include)
 
-# Application samples (selected via -DSAMPLE_DIRECTORY by `west build`).
-add_subdirectory(samples)
-
 # ====================================================================================================
 # C standard library (default: picolibc)
 # ====================================================================================================
@@ -109,6 +112,8 @@ set(FREERTOS_PORT "GCC_ARM_CM33_SECURE"   CACHE STRING "" FORCE)  # CM33 port
 
 add_subdirectory(${FREERTOS_KERNEL_PATH} FreeRTOS-Kernel)
 
+# Application samples (selected via -DSAMPLE_DIRECTORY by `west build`).
+add_subdirectory(samples)
 # Application library (Theseus console/log etc.).
 add_subdirectory(lib)
 
