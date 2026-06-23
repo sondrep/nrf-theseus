@@ -38,6 +38,7 @@
 #include <nrfx_config.h>
 #include <nrfx_grtc.h>
 #include <nrfx_gpiote.h>
+#include <stdio.h>   /* printf() in the application safety-net hooks */
 
 /* SYSCOUNTER is 1 MHz, so counts-per-tick = 1 MHz/tick_rate */
 #define GRTC_SYSCOUNTER_FREQ_HZ   1000000UL
@@ -593,3 +594,36 @@ void vPortYield(void){
 }
 
 #endif /* configASSERT_DEFINED */
+
+/* Application safety-net hooks.
+ *
+ * These fire on the two most common ways an RTOS quietly corrupts itself:
+ * a task overflowing its stack,
+ * and/or the FreeRTOS heap running out.
+ *
+ * Rather than letting the failure surface later as a mystery HardFault,
+ * we print which task/where and then halt with interrupts disabled,
+ * so it is obvious on the serial console and easy to catch in a debugger.
+ * We print *before* disabling interrupts so an interrupt-driven console can still flush the message.
+ */
+
+#if ( configCHECK_FOR_STACK_OVERFLOW > 0 )
+void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
+{
+    (void)xTask;
+    printf("\n[FATAL] stack overflow in task '%s'\n",
+           (pcTaskName != NULL) ? pcTaskName : "?");
+    taskDISABLE_INTERRUPTS();
+    for ( ;; ) { }
+}
+#endif
+
+#if ( configUSE_MALLOC_FAILED_HOOK == 1 )
+void vApplicationMallocFailedHook(void)
+{
+    printf("\n[FATAL] malloc failed: FreeRTOS heap exhausted "
+           "(free=%u bytes)\n", (unsigned)xPortGetFreeHeapSize());
+    taskDISABLE_INTERRUPTS();
+    for ( ;; ) { }
+}
+#endif

@@ -93,6 +93,11 @@ class Build(WestCommand):
         cmd = ['cmake', '-S', source_dir, '-B', build_dir,
                f'-DSAMPLE_DIRECTORY={args.sample}',
                f'-DNIMBLE_SYSCFG_INCLUDE={nimble_include}']
+        # Use Ninja for faster parallel builds when available,
+        # unless the caller picked a generator via `-- -G ...`.
+        if not any(a == '-G' or a.startswith('-G') for a in extra_args):
+            if shutil.which('ninja'):
+                cmd += ['-G', 'Ninja']
         if args.board:
             cmd.append(f'-DTHESEUS_BUILD_TARGET={args.board}')
         cmd.extend(extra_args)
@@ -100,7 +105,9 @@ class Build(WestCommand):
         subprocess.check_call(cmd)
 
     def _build(self, build_dir, target):
-        cmd = ['cmake', '--build', build_dir]
+        # Build in parallel across all cores (the Make generator is serial otherwise).
+        jobs = os.cpu_count() or 1
+        cmd = ['cmake', '--build', build_dir, '--parallel', str(jobs)]
         if target:
             cmd += ['--target', target]
         self.inf(f'-- Build: {" ".join(cmd)}')

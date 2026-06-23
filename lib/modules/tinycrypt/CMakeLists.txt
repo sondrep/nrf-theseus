@@ -19,6 +19,13 @@ target_sources(tinycrypt PRIVATE
     ${TINYCRYPT_PATH}/lib/source/sha256.c
     ${TINYCRYPT_PATH}/lib/source/utils.c
 )
+
 # PUBLIC so the main executable inherits the include path when it links.
-target_include_directories(tinycrypt PUBLIC ${TINYCRYPT_PATH}/lib/include)
+# SYSTEM because TinyCrypt headers are third-party, so they stay quiet in our code.
+target_include_directories(tinycrypt SYSTEM PUBLIC ${TINYCRYPT_PATH}/lib/include)
 target_link_libraries(tinycrypt PRIVATE log rng)
+
+# Upstream TinyCrypt is third-party, so silence the whole target.
+# tinycrypt.c is our shim, so opt it back into strict warnings + UBSan.
+theseus_mark_third_party(tinycrypt)
+theseus_mark_first_party(tinycrypt tinycrypt.c)
