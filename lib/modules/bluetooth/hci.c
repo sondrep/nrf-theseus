@@ -46,10 +46,6 @@
 #include <theseus/log.h>
 #include <nrfx_grtc.h>
 
-
-
-
-
 #define BIT(n)		   (1UL << (n))
 #define BIT_MASK(n)	   (BIT(n) - 1UL)
 #define BT_ACL_HANDLE_MASK BIT_MASK(12)
@@ -58,16 +54,16 @@
 #define bt_acl_flags_bc(f) ((f) >> 2)
 #define bt_acl_flags_pb(f) ((f) & BIT_MASK(2))
 
-
-
 /* MPSL needs first crack at the radio-timing peripherals (radio, GRTC, timer, clock).
  * These hardware ISRs just forward straight to MPSL's handlers. */
-void RADIO_0_IRQHandler(void){
-    MPSL_IRQ_RADIO_Handler();
+void RADIO_0_IRQHandler(void)
+{
+	MPSL_IRQ_RADIO_Handler();
 }
 
-void GRTC_3_IRQHandler(void){
-    MPSL_IRQ_RTC0_Handler();
+void GRTC_3_IRQHandler(void)
+{
+	MPSL_IRQ_RTC0_Handler();
 }
 
 void TIMER10_IRQHandler(void)
@@ -75,46 +71,45 @@ void TIMER10_IRQHandler(void)
 	MPSL_IRQ_TIMER0_Handler();
 }
 
-void CLOCK_POWER_IRQHandler(void){
-    MPSL_IRQ_CLOCK_Handler();
+void CLOCK_POWER_IRQHandler(void)
+{
+	MPSL_IRQ_CLOCK_Handler();
 }
-
-
 
 /* Handle of the task that runs MPSL's deferred low-priority work.
  * The SWI03 ISR uses it to wake the task directly. */
 static TaskHandle_t mpsl_lp_task_handle;
 
 /* Serialises all low-priority MPSL access.
- * MPSL forbids mpsl_low_priority_process() from running at the same time as any other low-priority MPSL call,
- * so anything calling one from another task must take this first.
- * Recursive so re-locking from the same task is safe. */
+ * MPSL forbids mpsl_low_priority_process() from running at the same time as any other low-priority
+ * MPSL call, so anything calling one from another task must take this first. Recursive so
+ * re-locking from the same task is safe. */
 static SemaphoreHandle_t mpsl_lp_mutex;
 
 /* MPSL raises SWI03 to say "low-priority work is pending".
  * That work is too heavy for an ISR, so we just wake the task and return. */
 void SWI03_IRQHandler(void)
 {
-    BaseType_t woken = pdFALSE;
+	BaseType_t woken = pdFALSE;
 
-    /* Wake the task via its built-in notification slot. */
-    vTaskNotifyGiveFromISR(mpsl_lp_task_handle, &woken);
-    portYIELD_FROM_ISR(woken);
+	/* Wake the task via its built-in notification slot. */
+	vTaskNotifyGiveFromISR(mpsl_lp_task_handle, &woken);
+	portYIELD_FROM_ISR(woken);
 }
 
 /* Runs the deferred SDC work (which calls sdc_callback_) at task priority. */
 static void mpsl_lp_task(void *arg)
 {
-    (void)arg;
-    while (true) {
-        /* Sleep until SWI03 pokes us. */
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+	(void)arg;
+	while (true) {
+		/* Sleep until SWI03 pokes us. */
+		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        /* Lock so we never overlap another low-priority MPSL caller. */
-        xSemaphoreTakeRecursive(mpsl_lp_mutex, portMAX_DELAY);
-        mpsl_low_priority_process();
-        xSemaphoreGiveRecursive(mpsl_lp_mutex);
-    }
+		/* Lock so we never overlap another low-priority MPSL caller. */
+		xSemaphoreTakeRecursive(mpsl_lp_mutex, portMAX_DELAY);
+		mpsl_low_priority_process();
+		xSemaphoreGiveRecursive(mpsl_lp_mutex);
+	}
 }
 
 /* MPSL low-latency callbacks: unused here, but the library requires them. */
@@ -128,25 +123,26 @@ void mpsl_low_latency_acquire_callback(void)
 
 /* Send ISO data from the host down to the controller.
  * NimBLE hands us the data as a chain of mbufs, but the SDC wants one flat buffer,
- * so we copy the chain into a single allocation (with the H4 ISO type byte in front) and pass it on. */
+ * so we copy the chain into a single allocation (with the H4 ISO type byte in front) and pass it
+ * on. */
 int ble_transport_to_ll_iso_impl(struct os_mbuf *om)
 {
-  /* First pass: add up the total length (+1 for the leading H4 type byte). */
-  size_t len = 1;
-  for (struct os_mbuf *m = om; m; m = SLIST_NEXT(m, om_next)) {
-    len += m->om_len;
-  }
+	/* First pass: add up the total length (+1 for the leading H4 type byte). */
+	size_t len = 1;
+	for (struct os_mbuf *m = om; m; m = SLIST_NEXT(m, om_next)) {
+		len += m->om_len;
+	}
 
-  uint8_t *buf = malloc(len);
-  assert(buf != NULL);
+	uint8_t *buf = malloc(len);
+	assert(buf != NULL);
 
-  /* Second pass: H4 type byte, then copy each mbuf's data in order. */
-  buf[0] = HCI_H4_ISO;
-  size_t i = 1;
-  for (struct os_mbuf *m = om; m; m = SLIST_NEXT(m, om_next)) {
-    memcpy(&buf[i], m->om_data, m->om_len);
-    i += m->om_len;
-  }
+	/* Second pass: H4 type byte, then copy each mbuf's data in order. */
+	buf[0] = HCI_H4_ISO;
+	size_t i = 1;
+	for (struct os_mbuf *m = om; m; m = SLIST_NEXT(m, om_next)) {
+		memcpy(&buf[i], m->om_data, m->om_len);
+		i += m->om_len;
+	}
 
 	int32_t err = sdc_hci_iso_data_put(buf);
 
@@ -161,110 +157,113 @@ static void fault_handler_(const char *file, const uint32_t line)
 	assert(0);
 }
 
-/* Called by the controller (via mpsl_low_priority_process) whenever it has HCI traffic for the host.
- * We drain every queued message, wrap each one in the buffer type the host expects, and hand it up. */
+/* Called by the controller (via mpsl_low_priority_process) whenever it has HCI traffic for the
+ * host. We drain every queued message, wrap each one in the buffer type the host expects, and hand
+ * it up. */
 static void sdc_callback_(void)
 {
-  int rc;
-  int sr;
-  uint8_t buf[HCI_MSG_BUFFER_MAX_SIZE] = {0};
-  uint8_t msg_type;
+	int rc;
+	int sr;
+	uint8_t buf[HCI_MSG_BUFFER_MAX_SIZE] = {0};
+	uint8_t msg_type;
 
-  while (1) {
-    /* Pull the next message out of the controller, stop when none are left. */
-    rc = sdc_hci_get(buf, &msg_type);
-    if (rc != 0) {
-      break;
-    }
+	while (1) {
+		/* Pull the next message out of the controller, stop when none are left. */
+		rc = sdc_hci_get(buf, &msg_type);
+		if (rc != 0) {
+			break;
+		}
 
-    /* For ACL/ISO the 16-bit length lives in the 2nd half-word of the header. */
-    uint16_t length_buf = *((uint16_t *)buf + 1);
-    uint16_t len;
+		/* For ACL/ISO the 16-bit length lives in the 2nd half-word of the header. */
+		uint16_t length_buf = *((uint16_t *)buf + 1);
+		uint16_t len;
 
-    switch (msg_type) {
-      case SDC_HCI_MSG_TYPE_NONE:
-        /* No real message: synthesise a NOP command-complete for the host. */
-        struct ble_hci_ev *hci_ev = ble_transport_alloc_evt(0);
-        if (hci_ev == NULL) {
-          continue;
-        }
-        struct ble_hci_ev_command_complete *cmd_complete = (void *)hci_ev->data;
-        cmd_complete->status = 0;
-        cmd_complete->num_packets = 1;
-        cmd_complete->opcode = BLE_HCI_OPCODE_NOP;
-        hci_ev->opcode = BLE_HCI_EVCODE_COMMAND_COMPLETE;
-        hci_ev->length = sizeof(struct ble_hci_ev_command_complete);
-        OS_ENTER_CRITICAL(sr);
-        rc = ble_transport_to_hs_evt(hci_ev);
-        OS_EXIT_CRITICAL(sr);
-        if (rc != 0) {
-          ble_transport_free(hci_ev);
-        }
-        return;
+		switch (msg_type) {
+		case SDC_HCI_MSG_TYPE_NONE:
+			/* No real message: synthesise a NOP command-complete for the host. */
+			struct ble_hci_ev *hci_ev = ble_transport_alloc_evt(0);
+			if (hci_ev == NULL) {
+				continue;
+			}
+			struct ble_hci_ev_command_complete *cmd_complete = (void *)hci_ev->data;
+			cmd_complete->status = 0;
+			cmd_complete->num_packets = 1;
+			cmd_complete->opcode = BLE_HCI_OPCODE_NOP;
+			hci_ev->opcode = BLE_HCI_EVCODE_COMMAND_COMPLETE;
+			hci_ev->length = sizeof(struct ble_hci_ev_command_complete);
+			OS_ENTER_CRITICAL(sr);
+			rc = ble_transport_to_hs_evt(hci_ev);
+			OS_EXIT_CRITICAL(sr);
+			if (rc != 0) {
+				ble_transport_free(hci_ev);
+			}
+			return;
 
-      case SDC_HCI_MSG_TYPE_DATA:
-        /* ACL data packet: 4-byte header + payload. */
-        len = le16toh(length_buf) + 4;
-        struct os_mbuf *m_acl = ble_transport_alloc_acl_from_hs();
-        rc = os_mbuf_append(m_acl, &buf[0], len);
-        if (rc != 0) {
-          os_mbuf_free_chain(m_acl);
-          assert(0);
-          return;
-        }
-        OS_ENTER_CRITICAL(sr);
-        ble_transport_to_hs_acl(m_acl);
-        OS_EXIT_CRITICAL(sr);
-        break;
+		case SDC_HCI_MSG_TYPE_DATA:
+			/* ACL data packet: 4-byte header + payload. */
+			len = le16toh(length_buf) + 4;
+			struct os_mbuf *m_acl = ble_transport_alloc_acl_from_hs();
+			rc = os_mbuf_append(m_acl, &buf[0], len);
+			if (rc != 0) {
+				os_mbuf_free_chain(m_acl);
+				assert(0);
+				return;
+			}
+			OS_ENTER_CRITICAL(sr);
+			ble_transport_to_hs_acl(m_acl);
+			OS_EXIT_CRITICAL(sr);
+			break;
 
-      case SDC_HCI_MSG_TYPE_EVT:
-        /* HCI event: 2-byte header + payload. */
-        len = buf[1] + 2;
+		case SDC_HCI_MSG_TYPE_EVT:
+			/* HCI event: 2-byte header + payload. */
+			len = buf[1] + 2;
 
-        /* Advertising reports flood in and are safe to lose,
-         * so allocate them from the discardable pool,
-         * that way they can never starve the reserved pool that command/connection events depend on. */
-        int discardable = (buf[0] == BLE_HCI_EVCODE_LE_META &&
-                           (buf[2] == BLE_HCI_LE_SUBEV_ADV_RPT ||
-                            buf[2] == BLE_HCI_LE_SUBEV_EXT_ADV_RPT));
+			/* Advertising reports flood in and are safe to lose,
+			 * so allocate them from the discardable pool,
+			 * that way they can never starve the reserved pool that command/connection
+			 * events depend on. */
+			int discardable = (buf[0] == BLE_HCI_EVCODE_LE_META &&
+					   (buf[2] == BLE_HCI_LE_SUBEV_ADV_RPT ||
+					    buf[2] == BLE_HCI_LE_SUBEV_EXT_ADV_RPT));
 
-        void *m_evt = ble_transport_alloc_evt(discardable);
-        if (m_evt == NULL) {
-          continue;
-        }
-        memcpy(m_evt, &buf[0], len);
-        OS_ENTER_CRITICAL(sr);
-        rc = ble_transport_to_hs_evt(m_evt);
-        OS_EXIT_CRITICAL(sr);
-        if (rc != 0) {
-          ble_transport_free(m_evt);
-        }
-        break;
+			void *m_evt = ble_transport_alloc_evt(discardable);
+			if (m_evt == NULL) {
+				continue;
+			}
+			memcpy(m_evt, &buf[0], len);
+			OS_ENTER_CRITICAL(sr);
+			rc = ble_transport_to_hs_evt(m_evt);
+			OS_EXIT_CRITICAL(sr);
+			if (rc != 0) {
+				ble_transport_free(m_evt);
+			}
+			break;
 
-      case SDC_HCI_MSG_TYPE_ISO:
-        /* ISO data packet: 4-byte header + payload. */
-        len = le16toh(length_buf) + 4;
-        struct os_mbuf *m_iso = ble_transport_alloc_iso_from_hs();
-        rc = os_mbuf_append(m_iso, &buf[0], len);
-        if (rc != 0) {
-          os_mbuf_free_chain(m_iso);
-          return;
-        }
-        OS_ENTER_CRITICAL(sr);
-        ble_transport_to_hs_iso(m_iso);
-        OS_EXIT_CRITICAL(sr);
-        break;
+		case SDC_HCI_MSG_TYPE_ISO:
+			/* ISO data packet: 4-byte header + payload. */
+			len = le16toh(length_buf) + 4;
+			struct os_mbuf *m_iso = ble_transport_alloc_iso_from_hs();
+			rc = os_mbuf_append(m_iso, &buf[0], len);
+			if (rc != 0) {
+				os_mbuf_free_chain(m_iso);
+				return;
+			}
+			OS_ENTER_CRITICAL(sr);
+			ble_transport_to_hs_iso(m_iso);
+			OS_EXIT_CRITICAL(sr);
+			break;
 
-      default:
-        assert(0);
-        break;
-    }
-  }
+		default:
+			assert(0);
+			break;
+		}
+	}
 }
 
 /* The controller asks for random bytes through this callback, we fill them from our PRNG. */
-static void rand_poll_(uint8_t *buf, uint8_t size){
-  (void)theseus_PRNG_get(buf, size);
+static void rand_poll_(uint8_t *buf, uint8_t size)
+{
+	(void)theseus_PRNG_get(buf, size);
 }
 
 /* Start the LF clock + GRTC used by the SoftDevice Controller / MPSL for radio timing.
@@ -309,73 +308,89 @@ static void grtc_lfclk_init(void)
  * and when it returns the controller is live and ready for HCI commands. */
 void ble_transport_ll_init(void)
 {
-    int32_t err;
+	int32_t err;
+	sdc_cfg_t cfg;
 
-    /* Bring up the LFXO + GRTC before the controller needs them. */
-    grtc_lfclk_init();
+	/* Bring up the LFXO + GRTC before the controller needs them. */
+	grtc_lfclk_init();
 
-    /* Lock that serialises low-priority MPSL access (see mpsl_lp_mutex). */
-    mpsl_lp_mutex = xSemaphoreCreateRecursiveMutex();
-    assert(mpsl_lp_mutex != NULL);
+	/* Lock that serialises low-priority MPSL access (see mpsl_lp_mutex). */
+	mpsl_lp_mutex = xSemaphoreCreateRecursiveMutex();
+	assert(mpsl_lp_mutex != NULL);
 
-    /* Task that runs MPSL's deferred work, woken by the SWI03 ISR. */
-    BaseType_t ok = xTaskCreate(mpsl_lp_task,
-                                "mpsl_Task",
-                                configMINIMAL_STACK_SIZE + 1024,
-                                NULL,
-                                tskIDLE_PRIORITY + 3,
-                                &mpsl_lp_task_handle);  /* save handle so the ISR can notify it */
-    assert(ok == pdPASS);
+	/* Task that runs MPSL's deferred work, woken by the SWI03 ISR. */
+	BaseType_t ok =
+		xTaskCreate(mpsl_lp_task, "mpsl_Task", configMINIMAL_STACK_SIZE + 1024, NULL,
+			    tskIDLE_PRIORITY + 3,
+			    &mpsl_lp_task_handle); /* save handle so the ISR can notify it */
+	assert(ok == pdPASS);
 
-    /* Bring up MPSL (radio arbitration) and the SoftDevice Controller. */
-    err = mpsl_init(NULL, SWI03_IRQn, fault_handler_);
-    assert(err >= 0);
+	/* Bring up MPSL (radio arbitration) and the SoftDevice Controller. */
+	err = mpsl_init(NULL, SWI03_IRQn, fault_handler_);
+	assert(err >= 0);
 
-    err = sdc_init(fault_handler_);
-    assert(err >= 0);
+	err = sdc_init(fault_handler_);
+	assert(err >= 0);
 
-    /* The controller pulls randomness from our PRNG. */
-    err = sdc_rand_source_register(&(sdc_rand_source_t){.rand_poll = rand_poll_});
-    assert(err >= 0);
+	/* The controller pulls randomness from our PRNG. */
+	err = sdc_rand_source_register(&(sdc_rand_source_t){.rand_poll = rand_poll_});
+	assert(err >= 0);
 
-    /* Pick the controller features this build needs. */
-    sdc_support_adv();
-    sdc_support_peripheral();
-    sdc_support_le_2m_phy();
-    sdc_support_scan();
+#if MYNEWT_VAL_BLE_ROLE_BROADCASTER
+	sdc_support_adv();
+#endif
 
-    /* Size the controller for 1 connection (peripheral) and 1 advertising set. */
-    sdc_cfg_t cfg = {
-      .peripheral_count = {
-        .count = 1
-      }
-    };
-    err = sdc_cfg_set(SDC_DEFAULT_RESOURCE_CFG_TAG, SDC_CFG_TYPE_PERIPHERAL_COUNT, &cfg);
-    assert(err >= 0);
+#if MYNEWT_VAL_BLE_ROLE_PERIPHERAL
+	sdc_support_peripheral();
+#endif
 
-    cfg.adv_count.count = 1;
-    err = sdc_cfg_set(SDC_DEFAULT_RESOURCE_CFG_TAG, SDC_CFG_TYPE_ADV_COUNT, &cfg);
-    assert(err >= 0);
+#if MYNEWT_VAL_BLE_ROLE_CENTRAL
+	sdc_support_central();
+#endif
 
-    /* The last sdc_cfg_set() returns how many bytes of RAM the controller needs
-     * for the config above; allocate exactly that and hand it to sdc_enable(). */
-    uint8_t *mem = malloc(err);
-    assert(mem != NULL);
+#if MYNEWT_VAL_BLE_PHY_2M
+	sdc_support_le_2m_phy();
+#endif
 
-    err = sdc_enable(sdc_callback_, mem);
-    assert(err >= 0);
+#if MYNEWT_VAL_BLE_ROLE_OBSERVER
+	sdc_support_scan();
+#endif
 
-    /* Post a NOP command-complete so the host knows the controller is up. */
-    struct ble_hci_ev *hci_ev = ble_transport_alloc_evt(0);
-    assert(hci_ev != NULL);
+#if MYNEWT_VAL_BLE_ROLE_PERIPHERAL
+	cfg.peripheral_count.count = MYNEWT_VAL_BLE_MAX_CONNECTIONS;
+	err = sdc_cfg_set(SDC_DEFAULT_RESOURCE_CFG_TAG, SDC_CFG_TYPE_PERIPHERAL_COUNT, &cfg);
+	assert(err >= 0);
+#endif
 
-    struct ble_hci_ev_command_complete_nop *ev = (void *)hci_ev->data;
-    hci_ev->opcode = BLE_HCI_EVCODE_COMMAND_COMPLETE;
-    hci_ev->length = sizeof(*ev);
-    ev->num_packets = 1;
-    ev->opcode = BLE_HCI_OPCODE_NOP;
+#if MYNEWT_VAL_BLE_ROLE_CENTRAL
+	cfg.central_count.count = MYNEWT_VAL_BLE_MAX_CONNECTIONS;
+	err = sdc_cfg_set(SDC_DEFAULT_RESOURCE_CFG_TAG, SDC_CFG_TYPE_CENTRAL_COUNT, &cfg);
+	assert(err >= 0);
+#endif
 
-    ble_transport_to_hs_evt(hci_ev);
+	cfg.adv_count.count = BLE_ADV_INSTANCES;
+	err = sdc_cfg_set(SDC_DEFAULT_RESOURCE_CFG_TAG, SDC_CFG_TYPE_ADV_COUNT, &cfg);
+	assert(err >= 0);
+
+	/* The last sdc_cfg_set() returns how many bytes of RAM the controller needs
+	 * for the config above; allocate exactly that and hand it to sdc_enable(). */
+	uint8_t *mem = malloc(err);
+	assert(mem != NULL);
+
+	err = sdc_enable(sdc_callback_, mem);
+	assert(err >= 0);
+
+	/* Post a NOP command-complete so the host knows the controller is up. */
+	struct ble_hci_ev *hci_ev = ble_transport_alloc_evt(0);
+	assert(hci_ev != NULL);
+
+	struct ble_hci_ev_command_complete_nop *ev = (void *)hci_ev->data;
+	hci_ev->opcode = BLE_HCI_EVCODE_COMMAND_COMPLETE;
+	hci_ev->length = sizeof(*ev);
+	ev->num_packets = 1;
+	ev->opcode = BLE_HCI_OPCODE_NOP;
+
+	ble_transport_to_hs_evt(hci_ev);
 }
 
 /* Send ACL data from the host down to the controller.
@@ -384,28 +399,28 @@ void ble_transport_ll_init(void)
  * so we copy the chain into a single allocation and hand it over. */
 int ble_transport_to_ll_acl_impl(struct os_mbuf *om)
 {
-  int sr;
+	int sr;
 
-  /* First pass: add up the total length. */
-  size_t len = 0;
-  for (struct os_mbuf *m = om; m; m = SLIST_NEXT(m, om_next)) {
-    len += m->om_len;
-  }
+	/* First pass: add up the total length. */
+	size_t len = 0;
+	for (struct os_mbuf *m = om; m; m = SLIST_NEXT(m, om_next)) {
+		len += m->om_len;
+	}
 
-  uint8_t *buf = malloc(len);
-  assert(buf != NULL);
+	uint8_t *buf = malloc(len);
+	assert(buf != NULL);
 
-  /* Second pass: copy each mbuf's data in order. */
-  size_t i = 0;
-  for (struct os_mbuf *m = om; m; m = SLIST_NEXT(m, om_next)) {
-    memcpy(&buf[i], m->om_data, m->om_len);
-    i += m->om_len;
-  }
+	/* Second pass: copy each mbuf's data in order. */
+	size_t i = 0;
+	for (struct os_mbuf *m = om; m; m = SLIST_NEXT(m, om_next)) {
+		memcpy(&buf[i], m->om_data, m->om_len);
+		i += m->om_len;
+	}
 
-  /* Critical section: sdc_hci_data_put() must not race the controller. */
-  OS_ENTER_CRITICAL(sr);
-  int32_t err = sdc_hci_data_put(buf);
-  OS_EXIT_CRITICAL(sr);
+	/* Critical section: sdc_hci_data_put() must not race the controller. */
+	OS_ENTER_CRITICAL(sr);
+	int32_t err = sdc_hci_data_put(buf);
+	OS_EXIT_CRITICAL(sr);
 
 	os_mbuf_free_chain(om);
 	free(buf);
@@ -423,7 +438,7 @@ int ble_transport_to_ll_acl_impl(struct os_mbuf *om)
  * Commands we don't support fall through with err = BLE_ERR_UNSUPPORTED. */
 int ble_transport_to_ll_cmd_impl(void *buf)
 {
-  struct ble_hci_cmd *cmd = (struct ble_hci_cmd *)buf;
+	struct ble_hci_cmd *cmd = (struct ble_hci_cmd *)buf;
 
 	uint16_t opcode = le16toh(cmd->opcode);
 	uint8_t ogf = BLE_HCI_OGF(opcode);
@@ -431,7 +446,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 
 	void *data = (void *)(cmd->data);
 
-  uint8_t err = BLE_ERR_UNSUPPORTED;
+	uint8_t err = BLE_ERR_UNSUPPORTED;
 
 	struct ble_hci_ev *hci_ev = (struct ble_hci_ev *)cmd;
 	void *rspbuf = hci_ev->data + sizeof(struct ble_hci_ev_command_complete);
