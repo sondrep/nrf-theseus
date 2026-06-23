@@ -86,10 +86,13 @@ extern uint32_t SystemCoreClock;
 /* Constants that define which hook (callback) functions should be used. */
 #define configUSE_IDLE_HOOK                             0
 #define configUSE_TICK_HOOK                             0
-#define configUSE_MALLOC_FAILED_HOOK                    0
+#define configUSE_MALLOC_FAILED_HOOK                    1
 
 /* Constants provided for debugging and optimisation assistance. */
-#define configCHECK_FOR_STACK_OVERFLOW                  0
+/* Method 2: paint the stack and check a canary on every context switch.
+ * Stack overflow and heap exhaustion are the two classic ways an RTOS silently corrupts itself,
+ * both now call a loud hook (see vApplication<ERROR_NAME>Hook in port.c). */
+#define configCHECK_FOR_STACK_OVERFLOW                  2
 #define configASSERT( x )                               if( ( x ) == 0 ) { taskDISABLE_INTERRUPTS(); for( ;; ); }
 #define configQUEUE_REGISTRY_SIZE                       0
 

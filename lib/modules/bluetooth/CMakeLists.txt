@@ -36,7 +36,9 @@ list(FILTER NIMBLE_SOURCES EXCLUDE REGEX "${NIMBLE_PATH}/apps/.+\\.c")
 list(FILTER NIMBLE_SOURCES EXCLUDE REGEX "${NIMBLE_PATH}/babblesim/.+\\.c")
 list(APPEND NIMBLE_SOURCES "${NIMBLE_PATH}/nimble/transport/src/transport.c")
 
-target_include_directories(bluetooth PUBLIC
+# NimBLE + mynewt-core are third-party:
+# mark their includes SYSTEM so the headers stay quiet even when our strict hci.c (and the sample mains) pull them in.
+target_include_directories(bluetooth SYSTEM PUBLIC
     ${NIMBLE_SYSCFG_INCLUDE}                                   # generated syscfg.h (from west)
     ${NIMBLE_PATH}/porting/nimble/include
     ${NIMBLE_PATH}/porting/npl/freertos/include
@@ -74,6 +76,66 @@ target_sources(bluetooth PRIVATE ${NIMBLE_SOURCES})
 # ====================================================================================================
 # Nordic binary libraries (SoftDevice Controller + MPSL)
 # ====================================================================================================
+get_target_property(compile_defs bluetooth COMPILE_DEFINITIONS)
+
+set(THESEUS_SDC_CENTRAL OFF)
+set(THESEUS_SDC_PERIPHERAL OFF)
+foreach( cd ${compile_defs} )
+    if(${cd} STREQUAL "MYNEWT_VAL_BLE_ROLE_CENTRAL=1")
+        set(THESEUS_SDC_CENTRAL ON)
+    elseif(${cd} STREQUAL "MYNEWT_VAL_BLE_ROLE_PERIPHERAL=1")
+        set(THESEUS_SDC_PERIPHERAL ON)
+    elseif(${cd} STREQUAL "MYNEWT_VAL_BLE_ROLE_BROADCASTER=1")
+        set(THESEUS_SDC_PERIPHERAL ON)
+    elseif(${cd} STREQUAL "MYNEWT_VAL_BLE_ROLE_OBSERVER=1")
+        set(THESEUS_SDC_CENTRAL ON)
+    elseif(${cd} STREQUAL "MYNEWT_VAL_BLE_EXT_ADV=1")
+        set(THESEUS_SDC_PERIPHERAL ON)
+        set(THESEUS_SDC_CENTRAL ON)
+    elseif(${cd} STREQUAL "MYNEWT_VAL_BLE_PERIODIC_ADV=1")
+        set(THESEUS_SDC_PERIPHERAL ON)
+        set(THESEUS_SDC_CENTRAL ON)
+    elseif(${cd} STREQUAL "MYNEWT_VAL_BLE_PERIODIC_ADV_SYNC_TRANSFER=1")
+        set(THESEUS_SDC_PERIPHERAL ON)
+        set(THESEUS_SDC_CENTRAL ON)
+    elseif(${cd} STREQUAL "MYNEWT_VAL_BLE_PERIODIC_ADV_SYNC_BIGINFO_REPORTS=1")
+        set(THESEUS_SDC_PERIPHERAL ON)
+        set(THESEUS_SDC_CENTRAL ON)
+    elseif(${cd} STREQUAL "MYNEWT_VAL_BLE_ISO=1")
+        set(THESEUS_SDC_PERIPHERAL ON)
+        set(THESEUS_SDC_CENTRAL ON)
+    elseif(${cd} STREQUAL "MYNEWT_VAL_BLE_ISO_BROADCAST_SOURCE=1")
+        set(THESEUS_SDC_PERIPHERAL ON)
+        set(THESEUS_SDC_CENTRAL ON)
+    elseif(${cd} STREQUAL "MYNEWT_VAL_BLE_ISO_BROADCAST_SINK=1")
+        set(THESEUS_SDC_PERIPHERAL ON)
+        set(THESEUS_SDC_CENTRAL ON)
+    elseif(${cd} STREQUAL "MYNEWT_VAL_BLE_ISO_TEST=1")
+        set(THESEUS_SDC_PERIPHERAL ON)
+        set(THESEUS_SDC_CENTRAL ON)
+    elseif(${cd} STREQUAL "MYNEWT_VAL_BLE_CHANNEL_SOUNDING=1")
+        set(THESEUS_SDC_PERIPHERAL ON)
+        set(THESEUS_SDC_CENTRAL ON)
+    elseif(${cd} STREQUAL "MYNEWT_VAL_BLE_PHY_CODED=1")
+        set(THESEUS_SDC_PERIPHERAL ON)
+        set(THESEUS_SDC_CENTRAL ON)
+    elseif(${cd} STREQUAL "MYNEWT_VAL_BLE_WHITELIST=1")
+        set(THESEUS_SDC_PERIPHERAL ON)
+        set(THESEUS_SDC_CENTRAL ON)
+    endif()
+    if(THESEUS_SDC_CENTRAL AND THESEUS_SDC_PERIPHERAL)
+        break()
+    endif()
+endforeach()
+
+if(THESEUS_SDC_CENTRAL AND THESEUS_SDC_PERIPHERAL)
+set(SDC_VARIANT multirole)
+elseif(THESEUS_SDC_PERIPHERAL)
+set(SDC_VARIANT peripheral)
+elseif(THESEUS_SDC_CENTRAL)
+set(SDC_VARIANT central)
+endif()
+
 add_subdirectory(${NRFXLIB_PATH}/softdevice_controller SoftDevice)
 add_subdirectory(${NRFXLIB_PATH}/mpsl MPSL)
 
@@ -83,3 +145,8 @@ target_link_libraries(bluetooth PRIVATE
     softdevice_controller
     nrfx freertos_config freertos_kernel c rng log
 )
+
+# NimBLE is third-party, so silence the whole target.
+# hci.c is our HCI transport shim, so opt it back into strict warnings + UBSan.
+theseus_mark_third_party(bluetooth)
+theseus_mark_first_party(bluetooth hci.c)

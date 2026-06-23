@@ -2,6 +2,10 @@
 Base repository for the nRF Theseus project — a bare-metal FreeRTOS port for
 the nRF54L15 (Arm Cortex-M33), built and managed with west.
 
+--------------------------------------------------
+
+<br>
+
 ## Setup workspace
 This repo is a west manifest repository, so it lives inside a workspace
 directory. Create the workspace, clone the repo into it, then let west fetch
@@ -30,3 +34,20 @@ west flash
 > ```shell
 > sudo apt install golang-go
 > ```
+
+--------------------------------------------------
+
+<br>
+<br>
+<br>
+
+## Build configuration
+First-party code is built with extra checks by default to catch bugs during
+development. The useful build flags:
+
+- `-p` - pristine (clean) build.
+- `-DTHESEUS_UBSAN=OFF` - drops UBSan for a smaller release image.
+
+```shell
+west build -s SAMPLE_NAME -b TARGET_BOARD -p -DTHESEUS_UBSAN=OFF
+```

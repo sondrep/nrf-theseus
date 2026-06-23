@@ -29,13 +29,14 @@
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
 #include "nimble/nimble_port.h"
+#include <theseus/rng.h>
 #include <theseus/module.h>
 #include <theseus/log.h>
 
 #include <FreeRTOS.h>
 #include <task.h>
 
-static const char *device_name = "Theseus ble_peripheral";
+static const char *device_name = "Theseus ble_adv";
 
 /* Host task settings.
  * The stack/priority just need to be big enough for the NimBLE host,
@@ -43,39 +44,27 @@ static const char *device_name = "Theseus ble_peripheral";
 #define BLE_HOST_TASK_STACK_WORDS (2048)
 #define BLE_HOST_TASK_PRIORITY	  (tskIDLE_PRIORITY + 2)
 
-/* Set once we accept a connection, cleared on disconnect. */
-static uint16_t conn_handle;
-
-/* adv_event() restarts advertising, so it needs the forward declaration. */
 static void advertise(void);
+
+static void set_ble_addr(void)
+{
+	int rc;
+	ble_addr_t addr;
+
+	/* Make up a random private address and use it as our identity. */
+	rc = ble_hs_id_gen_rnd(1, &addr);
+	assert(rc == 0);
+
+	rc = ble_hs_id_set_rnd(addr.val);
+	assert(rc == 0);
+
+	LOG("[APP] using addr %02x:%02x:%02x:%02x:%02x:%02x\n",
+	    addr.val[5], addr.val[4], addr.val[3], addr.val[2], addr.val[1], addr.val[0]);
+}
 
 static int adv_event(struct ble_gap_event *event, void *arg)
 {
-	switch (event->type) {
-	case BLE_GAP_EVENT_CONNECT:
-		/* A central connected to us; remember the handle. */
-		assert(event->connect.status == 0);
-		LOG("[APP] connected; handle=%d\n", event->connect.conn_handle);
-		conn_handle = event->connect.conn_handle;
-		break;
-	case BLE_GAP_EVENT_CONN_UPDATE_REQ:
-		/* Peer wants new connection parameters; NULL accepts our defaults. */
-		event->conn_update_req.conn_handle = conn_handle;
-		event->conn_update_req.peer_params = NULL;
-		break;
-	case BLE_GAP_EVENT_DISCONNECT:
-		/* Connection dropped; clear the handle and advertise again. */
-		LOG("[APP] disconnected; reason=0x%x\n", event->disconnect.reason);
-		conn_handle = BLE_HS_CONN_HANDLE_NONE;
-		advertise();
-		break;
-	case BLE_GAP_EVENT_ADV_COMPLETE:
-		/* Advertising stopped on its own; restart it. */
-		advertise();
-		break;
-	default:
-		break;
-	}
+	LOG("[APP] adv_event type=%d\n", event->type);
 	return 0;
 }
 
@@ -84,60 +73,34 @@ static void advertise(void)
 	int rc;
 	struct ble_gap_adv_params adv_params;
 	struct ble_hs_adv_fields fields;
-	struct ble_hs_adv_fields rsp_fields;
 
-	/* Connectable + general-discoverable: a central can find us and connect. */
 	memset(&adv_params, 0, sizeof(adv_params));
-	adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
+	adv_params.conn_mode = BLE_GAP_CONN_MODE_NON;
 	adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
 
-	/* Advertising packet: flags, a service UUID, and TX power. */
+	/* What we broadcast: discoverable flag, TX power, and our device name. */
 	memset(&fields, 0, sizeof(fields));
-	fields.flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP;
-	fields.uuids128 =
-		BLE_UUID128(BLE_UUID128_DECLARE(0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
-						0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff));
-	fields.num_uuids128 = 1;
-	fields.uuids128_is_complete = 0;
+	fields.flags = BLE_HS_ADV_F_DISC_GEN;
+	fields.tx_pwr_lvl_is_present = 1;
 	fields.tx_pwr_lvl = BLE_HS_ADV_TX_PWR_LVL_AUTO;
-
-	/* Name goes in the scan response: it won't fit alongside the UUID in the
-	 * 31-byte advertising packet, so we send it only when a scanner asks. */
-	memset(&rsp_fields, 0, sizeof(rsp_fields));
-	rsp_fields.name = (uint8_t *)device_name;
-	rsp_fields.name_len = strlen(device_name);
-	rsp_fields.name_is_complete = 1;
+	fields.name = (uint8_t *)device_name;
+	fields.name_len = strlen(device_name);
+	fields.name_is_complete = 1;
 
 	rc = ble_gap_adv_set_fields(&fields);
-	if (rc != 0) {
-		/* Don't assert: the host may be resetting, just bail and retry later. */
-		LOG("[APP] adv_set_fields failed; rc=%d\n", rc);
-		return;
-	}
-	ble_gap_adv_rsp_set_fields(&rsp_fields);
+	assert(rc == 0);
 
-	/* Advertise forever with a RANDOM address to match the address set on sync. */
+	/* Advertise forever with a RANDOM address to match the private address set above. */
 	rc = ble_gap_adv_start(BLE_OWN_ADDR_RANDOM, NULL, BLE_HS_FOREVER, &adv_params, adv_event, NULL);
-	if (rc != 0 && rc != BLE_HS_EALREADY) {
-		LOG("[APP] adv_start failed; rc=%d\n", rc);
-		return;
-	}
+	assert(rc == 0);
 
 	LOG("[APP] advertising as \"%s\"\n", device_name);
 }
 
 static void on_sync(void)
 {
-	int rc;
-	ble_addr_t addr;
-
-	/* Host and controller are ready; make up a random address and use it. */
-	rc = ble_hs_id_gen_rnd(0, &addr);
-	assert(rc == 0);
-
-	rc = ble_hs_id_set_rnd(addr.val);
-	assert(rc == 0);
-
+	/* Host and controller are ready; set our address and start advertising. */
+	set_ble_addr();
 	advertise();
 }
 
@@ -197,7 +160,7 @@ int main(void)
 	vTaskStartScheduler();
 
 	while (1) {
-		/* Should never reach here unless the scheduler can't start (e.g. no heap). */
+		/* Should never reach here unless the scheduler can't start (eks: no heap). */
 	}
 
 	return 0;
