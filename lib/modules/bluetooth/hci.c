@@ -368,9 +368,11 @@ void ble_transport_ll_init(void)
 	assert(err >= 0);
 #endif
 
+#if MYNEWT_VAL_BLE_ROLE_BROADCASTER
 	cfg.adv_count.count = BLE_ADV_INSTANCES;
 	err = sdc_cfg_set(SDC_DEFAULT_RESOURCE_CFG_TAG, SDC_CFG_TYPE_ADV_COUNT, &cfg);
 	assert(err >= 0);
+#endif
 
 	/* The last sdc_cfg_set() returns how many bytes of RAM the controller needs
 	 * for the config above; allocate exactly that and hand it to sdc_enable(). */
@@ -599,10 +601,12 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			hci_ev->length = sizeof(sdc_hci_cmd_le_read_buffer_size_return_t);
 			break;
 
+#if MYNEWT_VAL_BLE_ISO
 		case BLE_HCI_OCF_LE_RD_BUF_SIZE_V2:
 			err = sdc_hci_cmd_le_read_buffer_size_v2(rspbuf);
 			hci_ev->length = sizeof(sdc_hci_cmd_le_read_buffer_size_v2_return_t);
 			break;
+#endif
 
 		case BLE_HCI_OCF_LE_RD_LOC_SUPP_FEAT:
 			err = sdc_hci_cmd_le_read_local_supported_features(rspbuf);
@@ -614,6 +618,8 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			err = sdc_hci_cmd_le_set_random_address(data);
 			hci_ev->length = 0;
 			break;
+
+#if MYNEWT_VAL_BLE_ROLE_BROADCASTER
 
 		case BLE_HCI_OCF_LE_SET_ADV_PARAMS:
 			err = sdc_hci_cmd_le_set_adv_params(data);
@@ -640,7 +646,9 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			err = sdc_hci_cmd_le_set_adv_enable(data);
 			hci_ev->length = 0;
 			break;
+#endif
 
+#if MYNEWT_VAL_BLE_ROLE_OBSERVER
 		case BLE_HCI_OCF_LE_SET_SCAN_PARAMS:
 			err = sdc_hci_cmd_le_set_scan_params(data);
 			hci_ev->length = 0;
@@ -660,6 +668,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			err = sdc_hci_cmd_le_create_conn_cancel();
 			hci_ev->length = 0;
 			break;
+#endif
 
 		case BLE_HCI_OCF_LE_RD_WHITE_LIST_SIZE:
 			err = sdc_hci_cmd_le_read_filter_accept_list_size(rspbuf);
@@ -682,16 +691,20 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			hci_ev->length = 0;
 			break;
 
+#if MYNEWT_VAL_BLE_ROLE_CENTRAL
 		case BLE_HCI_OCF_LE_CONN_UPDATE:
 			err = sdc_hci_cmd_le_conn_update(data);
 			hci_ev->length = 0;
 			break;
+#endif
 
+#if MYNEWT_VAL_BLE_ROLE_CENTRAL || MYNEWT_VAL_BLE_EXT_ADV
 		case BLE_HCI_OCF_LE_SET_HOST_CHAN_CLASS:
 			err = sdc_hci_cmd_le_set_host_channel_classification(data);
 			hci_ev->length = 0;
 			break;
-
+#endif
+#if MYNEWT_VAL_BLE_MAX_CONNECTIONS > 0
 		case BLE_HCI_OCF_LE_RD_CHAN_MAP:
 			err = sdc_hci_cmd_le_read_channel_map(data, rspbuf);
 			hci_ev->length = sizeof(sdc_hci_cmd_le_read_channel_map_return_t);
@@ -701,6 +714,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			err = sdc_hci_cmd_le_read_remote_features(data);
 			hci_ev->length = 0;
 			break;
+#endif
 
 		case BLE_HCI_OCF_LE_ENCRYPT:
 			err = sdc_hci_cmd_le_encrypt(data, rspbuf);
@@ -712,11 +726,14 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			hci_ev->length = sizeof(sdc_hci_cmd_le_rand_return_t);
 			break;
 
+#if MYNEWT_VAL_BLE_ROLE_CENTRAL
 		case BLE_HCI_OCF_LE_START_ENCRYPT:
 			err = sdc_hci_cmd_le_enable_encryption(data);
 			hci_ev->length = 0;
 			break;
+#endif
 
+#if MYNEWT_VAL_BLE_ROLE_PERIPHERAL
 		case BLE_HCI_OCF_LE_LT_KEY_REQ_REPLY:
 			err = sdc_hci_cmd_le_long_term_key_request_reply(data, rspbuf);
 			hci_ev->length =
@@ -728,6 +745,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			hci_ev->length = sizeof(
 				sdc_hci_cmd_le_long_term_key_request_negative_reply_return_t);
 			break;
+#endif
 
 		case BLE_HCI_OCF_LE_RD_SUPP_STATES:
 			/* TODO: undefined reference to sdc_hci_cmd_le_read_supported_states(),
@@ -843,6 +861,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			hci_ev->length = 0;
 			break;
 
+#if MYNEWT_VAL_BLE_EXT_ADV
 		case BLE_HCI_OCF_LE_SET_ADV_SET_RND_ADDR:
 			err = sdc_hci_cmd_le_set_adv_set_random_address(data);
 			hci_ev->length = 0;
@@ -888,7 +907,9 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			err = sdc_hci_cmd_le_clear_adv_sets();
 			hci_ev->length = 0;
 			break;
+#endif
 
+#if MYNEWT_VAL_BLE_PERIODIC_ADV
 		case BLE_HCI_OCF_LE_SET_PERIODIC_ADV_PARAMS:
 			err = sdc_hci_cmd_le_set_periodic_adv_params(data);
 			hci_ev->length = 0;
@@ -903,7 +924,8 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			err = sdc_hci_cmd_le_set_periodic_adv_enable(data);
 			hci_ev->length = 0;
 			break;
-
+#endif
+#if MYNEWT_VAL_BLE_ROLE_OBSERVER && MYNEWT_VAL_BLE_EXT_ADV
 		case BLE_HCI_OCF_LE_SET_EXT_SCAN_PARAM:
 			err = sdc_hci_cmd_le_set_ext_scan_params(data);
 			hci_ev->length = 0;
@@ -913,12 +935,14 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			err = sdc_hci_cmd_le_set_ext_scan_enable(data);
 			hci_ev->length = 0;
 			break;
-
+#endif
+#if MYNEWT_VAL_BLE_ROLE_CENTRAL && MYNEWT_VAL_BLE_EXT_ADV
 		case BLE_HCI_OCF_LE_EXT_CREATE_CONN:
 			err = sdc_hci_cmd_le_ext_create_conn(data);
 			hci_ev->length = 0;
 			break;
-
+#endif
+#if MYNEWT_VAL_BLE_PERIODIC_ADV_SYNC_TRANSFER
 		case BLE_HCI_OCF_LE_PERIODIC_ADV_CREATE_SYNC:
 			err = sdc_hci_cmd_le_periodic_adv_create_sync(data);
 			hci_ev->length = 0;
@@ -954,6 +978,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			hci_ev->length =
 				sizeof(sdc_hci_cmd_le_read_periodic_adv_list_size_return_t);
 			break;
+#endif
 
 		case BLE_HCI_OCF_LE_RD_TRANSMIT_POWER:
 			err = sdc_hci_cmd_le_read_transmit_power(rspbuf);
@@ -983,6 +1008,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			hci_ev->length = 0;
 			break;
 
+#if 0 /* Nimble does not support CTE */
 		case BLE_HCI_OCF_LE_SET_CONNLESS_CTE_TX_PARAMS:
 			err = sdc_hci_cmd_le_set_connless_cte_transmit_params(data);
 			hci_ev->length = 0;
@@ -1020,7 +1046,9 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			err = sdc_hci_cmd_le_read_antenna_information(rspbuf);
 			hci_ev->length = sizeof(sdc_hci_cmd_le_read_antenna_information_return_t);
 			break;
+#endif
 
+#if MYNEWT_VAL_BLE_PERIODIC_ADV_SYNC_TRANSFER
 		case BLE_HCI_OCF_LE_PERIODIC_ADV_RECEIVE_ENABLE:
 			err = sdc_hci_cmd_le_set_periodic_adv_receive_enable(data);
 			hci_ev->length = 0;
@@ -1047,6 +1075,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			err = sdc_hci_cmd_le_set_default_periodic_adv_sync_transfer_params(data);
 			hci_ev->length = 0;
 			break;
+#endif
 
 		case BLE_HCI_OCF_LE_GENERATE_DHKEY_V2:
 			hci_ev->length = 0;
@@ -1056,6 +1085,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			hci_ev->length = 0;
 			break;
 
+#if MYNEWT_VAL_BLE_ISO
 		case BLE_HCI_OCF_LE_READ_ISO_TX_SYNC:
 			err = sdc_hci_cmd_le_read_iso_tx_sync(data, rspbuf);
 			hci_ev->length = sizeof(sdc_hci_cmd_le_read_iso_tx_sync_return_t);
@@ -1115,12 +1145,15 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			err = sdc_hci_cmd_le_big_terminate_sync(data, rspbuf);
 			hci_ev->length = sizeof(sdc_hci_cmd_le_big_terminate_sync_return_t);
 			break;
-
+#endif
+#if MYNEWT_VAL_BLE_WHITELIST
 		case BLE_HCI_OCF_LE_REQ_PEER_SCA:
 			err = sdc_hci_cmd_le_request_peer_sca(data);
 			hci_ev->length = 0;
 			break;
+#endif
 
+#if MYNEWT_VAL_BLE_ISO
 		case BLE_HCI_OCF_LE_SETUP_ISO_DATA_PATH:
 			err = sdc_hci_cmd_le_setup_iso_data_path(data, rspbuf);
 			hci_ev->length = sizeof(sdc_hci_cmd_le_setup_iso_data_path_return_t);
@@ -1130,7 +1163,9 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			err = sdc_hci_cmd_le_remove_iso_data_path(data, rspbuf);
 			hci_ev->length = sizeof(sdc_hci_cmd_le_remove_iso_data_path_return_t);
 			break;
+#endif
 
+#if MYNEWT_VAL_BLE_ISO_TEST
 		case BLE_HCI_OCF_LE_ISO_TRANSMIT_TEST:
 			err = sdc_hci_cmd_le_iso_transmit_test(data, rspbuf);
 			hci_ev->length = sizeof(sdc_hci_cmd_le_iso_transmit_test_return_t);
@@ -1150,16 +1185,21 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			err = sdc_hci_cmd_le_iso_test_end(data, rspbuf);
 			hci_ev->length = sizeof(sdc_hci_cmd_le_iso_test_end_return_t);
 			break;
+#endif
 
+#if MYNEWT_VAL_BLE_CONN_SUBRATING
 		case BLE_HCI_OCF_LE_SET_HOST_FEATURE:
 			err = sdc_hci_cmd_le_set_host_feature(data);
 			hci_ev->length = 0;
 			break;
+#endif
 
+#if MYNEWT_VAL_BLE_ISO
 		case BLE_HCI_OCF_LE_READ_ISO_LINK_QUALITY:
 			err = sdc_hci_cmd_le_read_iso_link_quality(data, rspbuf);
 			hci_ev->length = sizeof(sdc_hci_cmd_le_read_iso_link_quality_return_t);
 			break;
+#endif
 
 		case BLE_HCI_OCF_LE_ENH_READ_TRANSMIT_POWER_LEVEL:
 			err = sdc_hci_cmd_le_enhanced_read_transmit_power_level(data, rspbuf);
@@ -1190,6 +1230,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 				sizeof(sdc_hci_cmd_le_set_transmit_power_reporting_enable_return_t);
 			break;
 
+#if MYNEWT_VAL_BLE_CONN_SUBRATING
 		case BLE_HCI_OCF_LE_SET_DEFAULT_SUBRATE:
 			err = sdc_hci_cmd_le_set_default_subrate(data);
 			hci_ev->length = 0;
@@ -1199,12 +1240,16 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			err = sdc_hci_cmd_le_subrate_request(data);
 			hci_ev->length = 0;
 			break;
+#endif
 
+#if MYNEWT_VAL_BLE_EXT_ADV
 		case BLE_HCI_OCF_LE_SET_EXT_ADV_PARAM_V2:
 			err = sdc_hci_cmd_le_set_ext_adv_params_v2(data, rspbuf);
 			hci_ev->length = sizeof(sdc_hci_cmd_le_set_ext_adv_params_v2_return_t);
 			break;
+#endif
 
+#if MYNEWT_VAL_BLE_CHANNEL_SOUNDING
 		case BLE_HCI_OCF_LE_CS_RD_LOC_SUPP_CAP:
 			err = sdc_hci_cmd_le_cs_read_local_supported_capabilities(rspbuf);
 			hci_ev->length = sizeof(
@@ -1278,6 +1323,8 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 			err = sdc_hci_cmd_le_cs_test_end();
 			hci_ev->length = 0;
 			break;
+
+#endif
 
 		default:
 
