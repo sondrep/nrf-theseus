@@ -336,7 +336,9 @@ void ble_transport_ll_init(void)
 	err = sdc_rand_source_register(&(sdc_rand_source_t){.rand_poll = rand_poll_});
 	assert(err >= 0);
 
-#if MYNEWT_VAL_BLE_ROLE_BROADCASTER
+#if MYNEWT_VAL_BLE_EXT_ADV
+	sdc_support_ext_adv();
+#elif MYNEWT_VAL_BLE_ROLE_BROADCASTER
 	sdc_support_adv();
 #endif
 
@@ -346,14 +348,56 @@ void ble_transport_ll_init(void)
 
 #if MYNEWT_VAL_BLE_ROLE_CENTRAL
 	sdc_support_central();
+#elif MYNEWT_VAL_BLE_ROLE_OBSERVER
+	sdc_support_scan();
 #endif
 
 #if MYNEWT_VAL_BLE_PHY_2M
 	sdc_support_le_2m_phy();
 #endif
 
-#if MYNEWT_VAL_BLE_ROLE_OBSERVER
-	sdc_support_scan();
+#if MYNEWT_VAL_BLE_PHY_CODED
+	sdc_support_le_coded_phy();
+#endif
+
+#if MYNEWT_VAL_BLE_PERIODIC_ADV
+	sdc_support_le_periodic_adv();
+#endif
+
+#if MYNEWT_VAL_BLE_PERIODIC_ADV_SYNC_TRANSFER
+	sdc_support_le_periodic_sync();
+#endif
+
+#if MYNEWT_VAL_BLE_POWER_CONTROL
+#if MYNEWT_VAL_BLE_ROLE_CENTRAL
+	sdc_support_le_power_control_central();
+#endif
+#if MYNEWT_VAL_BLE_ROLE_PERIPHERAL
+	sdc_support_le_power_control_peripheral();
+#endif
+#endif
+
+#if MYNEWT_VAL_BLE_ISO_BROADCAST_SOURCE
+	sdc_support_bis_source();
+#endif
+#if MYNEWT_VAL_BLE_ISO_BROADCAST_SINK
+	sdc_support_bis_sink();
+#endif
+
+#if MYNEWT_VAL_BLE_CONN_SUBRATING
+#if MYNEWT_VAL_BLE_ROLE_CENTRAL
+	sdc_support_connection_subrating_central();
+#endif
+#if MYNEWT_VAL_BLE_ROLE_PERIPHERAL
+	sdc_support_connection_subrating_peripheral();
+#endif
+#endif
+
+#if MYNEWT_VAL_BLE_CHANNEL_SOUNDING
+	sdc_support_channel_sounding_test();
+	sdc_support_channel_sounding_mode3();
+	sdc_support_channel_sounding_initiator_role();
+	sdc_support_channel_sounding_reflector_role();
 #endif
 
 #if MYNEWT_VAL_BLE_ROLE_PERIPHERAL
