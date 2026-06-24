@@ -442,16 +442,16 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 {
 	struct ble_hci_cmd *cmd = (struct ble_hci_cmd *)buf;
 
-	uint16_t opcode = le16toh(cmd->opcode);
-	uint8_t ogf = BLE_HCI_OGF(opcode);
-	uint8_t ocf = BLE_HCI_OCF(opcode);
-
-	void *data = (void *)(cmd->data);
-
-	uint8_t err = BLE_ERR_UNSUPPORTED;
-
-	struct ble_hci_ev *hci_ev = (struct ble_hci_ev *)cmd;
-	void *rspbuf = hci_ev->data + sizeof(struct ble_hci_ev_command_complete);
+  	uint16_t opcode = le16toh(cmd->opcode);
+  	uint8_t ogf = BLE_HCI_OGF(opcode);
+  	uint8_t ocf = BLE_HCI_OCF(opcode);
+  	uint8_t params[256];
+  	memcpy(params, cmd->data, cmd->length);
+  	void *data = params;
+  	uint8_t err = NRF_EOPNOTSUPP;
+  	struct ble_hci_ev *hci_ev = (struct ble_hci_ev *)cmd;
+  	void *rspbuf = hci_ev->data + sizeof(struct ble_hci_ev_command_complete);
+  	bool generate_command_status = false;
 
 	switch (ogf) {
 	case 0x01:
@@ -662,6 +662,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		case BLE_HCI_OCF_LE_CREATE_CONN:
 			err = sdc_hci_cmd_le_create_conn(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 
 		case BLE_HCI_OCF_LE_CREATE_CONN_CANCEL:
@@ -695,6 +696,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		case BLE_HCI_OCF_LE_CONN_UPDATE:
 			err = sdc_hci_cmd_le_conn_update(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 #endif
 
@@ -713,6 +715,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		case BLE_HCI_OCF_LE_RD_REM_FEAT:
 			err = sdc_hci_cmd_le_read_remote_features(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 #endif
 
@@ -730,6 +733,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		case BLE_HCI_OCF_LE_START_ENCRYPT:
 			err = sdc_hci_cmd_le_enable_encryption(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 #endif
 
@@ -851,6 +855,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		case BLE_HCI_OCF_LE_SET_PHY:
 			err = sdc_hci_cmd_le_set_phy(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 
 		case BLE_HCI_OCF_LE_RX_TEST_V2:
@@ -940,12 +945,14 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		case BLE_HCI_OCF_LE_EXT_CREATE_CONN:
 			err = sdc_hci_cmd_le_ext_create_conn(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 #endif
 #if MYNEWT_VAL_BLE_PERIODIC_ADV_SYNC_TRANSFER
 		case BLE_HCI_OCF_LE_PERIODIC_ADV_CREATE_SYNC:
 			err = sdc_hci_cmd_le_periodic_adv_create_sync(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 
 		case BLE_HCI_OCF_LE_PERIODIC_ADV_CREATE_SYNC_CANCEL:
@@ -1104,6 +1111,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		case BLE_HCI_OCF_LE_CREATE_CIS:
 			err = sdc_hci_cmd_le_create_cis(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 
 		case BLE_HCI_OCF_LE_REMOVE_CIG:
@@ -1114,6 +1122,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		case BLE_HCI_OCF_LE_ACCEPT_CIS_REQ:
 			err = sdc_hci_cmd_le_accept_cis_request(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 
 		case BLE_HCI_OCF_LE_REJECT_CIS_REQ:
@@ -1124,21 +1133,25 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		case BLE_HCI_OCF_LE_CREATE_BIG:
 			err = sdc_hci_cmd_le_create_big(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 
 		case BLE_HCI_OCF_LE_CREATE_BIG_TEST:
 			err = sdc_hci_cmd_le_create_big_test(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 
 		case BLE_HCI_OCF_LE_TERMINATE_BIG:
 			err = sdc_hci_cmd_le_terminate_big(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 
 		case BLE_HCI_OCF_LE_BIG_CREATE_SYNC:
 			err = sdc_hci_cmd_le_big_create_sync(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 
 		case BLE_HCI_OCF_LE_BIG_TERMINATE_SYNC:
@@ -1150,6 +1163,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		case BLE_HCI_OCF_LE_REQ_PEER_SCA:
 			err = sdc_hci_cmd_le_request_peer_sca(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 #endif
 
@@ -1210,6 +1224,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		case BLE_HCI_OCF_LE_READ_REMOTE_TRANSMIT_POWER_LEVEL:
 			err = sdc_hci_cmd_le_read_remote_transmit_power_level(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 
 		case BLE_HCI_OCF_LE_SET_PATH_LOSS_REPORT_PARAM:
@@ -1239,6 +1254,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		case BLE_HCI_OCF_LE_SUBRATE_REQ:
 			err = sdc_hci_cmd_le_subrate_request(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 #endif
 
@@ -1259,6 +1275,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		case BLE_HCI_OCF_LE_CS_RD_REM_SUPP_CAP:
 			err = sdc_hci_cmd_le_cs_read_remote_supported_capabilities(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 
 		case BLE_HCI_OCF_LE_CS_WR_CACHED_REM_SUPP_CAP:
@@ -1271,6 +1288,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		case BLE_HCI_OCF_LE_CS_SEC_ENABLE:
 			err = sdc_hci_cmd_le_cs_security_enable(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 
 		case BLE_HCI_OCF_LE_CS_SET_DEF_SETTINGS:
@@ -1281,6 +1299,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		case BLE_HCI_OCF_LE_CS_RD_REM_FAE:
 			err = sdc_hci_cmd_le_cs_read_remote_fae_table(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 
 		case BLE_HCI_OCF_LE_CS_WR_CACHED_REM_FAE:
@@ -1292,11 +1311,13 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		case BLE_HCI_OCF_LE_CS_CREATE_CONFIG:
 			err = sdc_hci_cmd_le_cs_create_config(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 
 		case BLE_HCI_OCF_LE_CS_REMOVE_CONFIG:
 			err = sdc_hci_cmd_le_cs_remove_config(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 
 		case BLE_HCI_OCF_LE_CS_SET_CHAN_CLASS:
@@ -1312,6 +1333,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		case BLE_HCI_OCF_LE_CS_PROC_ENABLE:
 			err = sdc_hci_cmd_le_cs_procedure_enable(data);
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 
 		case BLE_HCI_OCF_LE_CS_TEST:
@@ -1322,6 +1344,7 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		case BLE_HCI_OCF_LE_CS_TEST_END:
 			err = sdc_hci_cmd_le_cs_test_end();
 			hci_ev->length = 0;
+			generate_command_status = true;
 			break;
 
 #endif
@@ -1391,12 +1414,21 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		break;
 	}
 
-	struct ble_hci_ev_command_complete *cmd_complete = (void *)hci_ev->data;
-	cmd_complete->status = err;
-	cmd_complete->num_packets = 1;
-	cmd_complete->opcode = htole16(opcode);
-	hci_ev->opcode = BLE_HCI_EVCODE_COMMAND_COMPLETE;
-	hci_ev->length += sizeof(struct ble_hci_ev_command_complete);
+	if (generate_command_status){
+    	struct ble_hci_ev_command_status *cmd_status = (void *)hci_ev->data;
+    	hci_ev->opcode = BLE_HCI_EVCODE_COMMAND_STATUS;
+    	hci_ev->length = sizeof(struct ble_hci_ev_command_status);
+    	cmd_status->status = err;
+    	cmd_status->num_packets = 1;
+    	cmd_status->opcode = htole16(opcode);
+  	} else {
+    	struct ble_hci_ev_command_complete *cmd_complete = (void *)hci_ev->data;
+    	hci_ev->opcode = BLE_HCI_EVCODE_COMMAND_COMPLETE;
+    	hci_ev->length += sizeof(struct ble_hci_ev_command_complete);
+    	cmd_complete->status = err;
+    	cmd_complete->num_packets = 1;
+    	cmd_complete->opcode = htole16(opcode);
+  	}
 
 	ble_transport_to_hs_evt(hci_ev);
 
