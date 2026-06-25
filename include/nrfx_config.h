@@ -10,7 +10,7 @@
 #define NRFX_CONFIG_H__
 
 #define NRFX_CONFIG_API_VER_MAJOR 4
-#define NRFX_CONFIG_API_VER_MINOR 0
+#define NRFX_CONFIG_API_VER_MINOR 3
 #define NRFX_CONFIG_API_VER_MICRO 0
 
 /* Pull in Kconfig-generated defines (CONFIG_NRFX_*, CONFIG_SOC_*, ...) */

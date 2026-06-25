@@ -1,0 +1,3 @@
+target_sources(${EXECUTABLE_NAME} PRIVATE ${THESEUS_BUILD_TARGET}.c)
+
+theseus_mark_first_party(${EXECUTABLE_NAME} ${THESEUS_BUILD_TARGET}.c)

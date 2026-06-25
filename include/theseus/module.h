@@ -3,9 +3,16 @@
 
 typedef int (*theseus_module_callback)(void);
 
+enum theseus_module_stage {
+	THESEUS_MODULE_STAGE_EARLY,
+	THESEUS_MODULE_STAGE_INTERMEDIARY,
+	THESEUS_MODULE_STAGE_LATE
+};
+
 struct theseus_module {
 	theseus_module_callback init;
 	theseus_module_callback deinit;
+	enum theseus_module_stage stage;
 };
 
 #define __THESEUS_STRINGIFY(x) #x

@@ -11,4 +11,4 @@ int theseus_PRNG_get(uint8_t *buf, size_t size)
 	return nrfx_cracen_ctr_drbg_random_get(buf, size);
 }
 
-THESEUS_MODULE_SET(rng) = {.init = rng_init};
+THESEUS_MODULE_SET(rng) = {.init = rng_init, .stage = THESEUS_MODULE_STAGE_EARLY};

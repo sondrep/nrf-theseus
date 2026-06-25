@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# Theseus -- top-level build for the nRF54L15 (Cortex-M33) FreeRTOS app.
+# Theseus -- top-level build
 #
 # Driven by `west build` (scripts/west_commands),
 # which generates NimBLE's syscfg headers and passes their location in via -DNIMBLE_SYSCFG_INCLUDE.
@@ -31,7 +31,7 @@ endif()
 
 set(CMAKE_C_FLAGS_RELEASE "-O2 -Werror")
 
-set(THESEUS_MODULES bluetooth log rng tinycrypt)
+set(THESEUS_MODULES bluetooth log rng tinycrypt gpiote)
 
 foreach(module IN LISTS THESEUS_MODULES)
 add_library(${module} EXCLUDE_FROM_ALL)
@@ -64,7 +64,7 @@ project(app LANGUAGES C ASM)
 set(EXECUTABLE_NAME ${PROJECT_NAME}.elf)
 
 # The MCU startup/system file is the executable's first source.
-add_executable(${EXECUTABLE_NAME} ${MDK_DIR}/system_nrf54l.c)
+add_executable(${EXECUTABLE_NAME})
 add_library(nrfx EXCLUDE_FROM_ALL)
 
 
@@ -80,7 +80,7 @@ else()
         "Invalid target: ${THESEUS_BUILD_TARGET} is not a valid build target.")
 endif()
 
-
+add_subdirectory(boards)
 
 # ====================================================================================================
 # Warning + sanitizer + analyzer policy
@@ -169,11 +169,6 @@ target_compile_options(nrfx PUBLIC ${THESEUS_CPU_FLAGS}
 )
 theseus_mark_third_party(nrfx)
 
-# app.elf mixes vendor sources (MDK system_nrf54l.c, startup .S) with first-party sources (port/module/main).
-# Silence ONLY the vendor files per-source; the first-party files (in lib/ and samples/) are marked strict
-# via theseus_mark_first_party. A target-wide -w here would defeat those per-source -Wall/-fanalyzer flags.
-# (The board file silences its own startup .S where that source is added.)
-theseus_mark_third_party_sources(${EXECUTABLE_NAME} ${MDK_DIR}/system_nrf54l.c)
 
 add_compile_options(${THESEUS_CPU_FLAGS})
 
@@ -264,11 +259,7 @@ target_include_directories(nrfx PUBLIC include)
 
 file(GLOB_RECURSE NRFX_SOURCES "${NRFX_PATH}/drivers/src/*.c")
 
-# Drivers excluded from the build (unused here or unsupported on nRF54L).
-set(NRFX_EXCLUDE
-    adc bellboard clock comp ipc mramc nvmc power qspi rng
-    rtc rtc_legacy spi spis tbm tdm twi uart usbd usbreg vevif
-)
+
 foreach(drv IN LISTS NRFX_EXCLUDE)
     list(FILTER NRFX_SOURCES EXCLUDE REGEX "${NRFX_PATH}/drivers/src/nrfx_${drv}\\.c")
 endforeach()
