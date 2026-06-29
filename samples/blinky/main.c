@@ -44,9 +44,6 @@ static const led_blink_t leds[] = {
 
 #define NUM_LEDS (sizeof(leds) / sizeof(leds[0]))
 
-/* Interrupt priority for the GPIOTE driver */
-#define GPIOTE_IRQ_PRIORITY 3
-
 void TaskBlink(void *arg)
 {
 	/* Recover this LED's config and build its GPIO pin number */
