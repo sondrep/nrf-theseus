@@ -38,6 +38,7 @@
 #include <nrfx_config.h>
 #include <nrfx_rtc.h>
 #include <nrfx_gpiote.h>
+#include <nrfx_ipc.h>
 #include <stdio.h> /* printf() in the application safety-net hooks */
 
 /* SYSCOUNTER is 1 MHz, so counts-per-tick = 1 MHz/tick_rate */
@@ -276,6 +277,11 @@ static void vPortEnableVFP(void);
  * Used to catch tasks that attempt to return from their implementing function.
  */
 static void prvTaskExitError(void);
+
+void IPC_IRQHandler(void)
+{
+	nrfx_ipc_irq_handler();
+}
 
 /*-----------------------------------------------------------*/
 
@@ -544,6 +550,7 @@ void RTC1_IRQHandler(void)
 void vPortSetupTimerInterrupt(void)
 {
 	nrfx_rtc_config_t rtc_config = NRFX_RTC_DEFAULT_CONFIG;
+	rtc_config.prescaler = NRF_RTC_FREQ_TO_PRESCALER(configTICK_RATE_HZ);
 	configASSERT(nrfx_rtc_init(&rtc_instance, &rtc_config, rtc_cb) == 0);
 	nrfx_rtc_tick_enable(&rtc_instance, true);
 	nrfx_rtc_enable(&rtc_instance);

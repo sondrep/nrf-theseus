@@ -15,6 +15,8 @@ manifest:
   # "remotes" is a list of locations where git repositories are cloned
   # and fetched from. Keep sorted alphabetically by name.
   remotes:
+    - name: eivindj
+      url-base: https://github.com/eivindj-nordic
     - name: anhmolt
       url-base: https://github.com/anhmolt
     - name: apache
@@ -87,11 +89,11 @@ manifest:
       revision: v4.3.0
 
     - name: nrfxlib
-      remote: anhmolt
+      remote: eivindj
       repo-path: sdk-nrfxlib
       path: nrfxlib
       # NCS fork: no clean upstream tag, pinned to a known-good commit.
-      revision: 72ca8abbc28d9f000c042682c6805f5ee878be43
+      revision: bc861864c2cd9097ce2fad5fab8ec0819be43b7a
 
     - name: picolibc
       remote: picolibc

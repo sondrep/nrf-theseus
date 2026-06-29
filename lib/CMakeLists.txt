@@ -1,3 +1,6 @@
+add_executable(secure.elf)
+target_sources(secure.elf PRIVATE module.c)
+
 target_sources(${EXECUTABLE_NAME} PRIVATE module.c)
 target_sources(nrfx PRIVATE nrfx_glue.c)
 
@@ -8,3 +11,4 @@ theseus_mark_first_party(nrfx nrfx_glue.c)
 
 add_subdirectory(modules)
 add_subdirectory(ports)
+add_subdirectory(secure)

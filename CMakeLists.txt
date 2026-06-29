@@ -31,7 +31,7 @@ endif()
 
 set(CMAKE_C_FLAGS_RELEASE "-O2 -Werror")
 
-set(THESEUS_MODULES bluetooth log rng tinycrypt gpiote)
+set(THESEUS_MODULES bluetooth log rng tinycrypt gpiote nrf_modem_lib spu)
 
 foreach(module IN LISTS THESEUS_MODULES)
 add_library(${module} EXCLUDE_FROM_ALL)
@@ -298,7 +298,7 @@ set(CMAKE_C_LINK_GROUP_USING_RESCAN "LINKER:--start-group" "LINKER:--end-group")
 target_link_options(${EXECUTABLE_NAME} PRIVATE
     -mthumb -mcpu=cortex-m33 -mfloat-abi=hard -mfpu=fpv5-sp-d16 -g3
     -Wl,-gc-sections,--print-memory-usage,-Map=${PROJECT_BINARY_DIR}/${PROJECT_NAME}.map
-    -T ${LINKER_SCRIPT}
+    -T ${LINKER_SCRIPT_NS}
     -L ${MDK_DIR}/
     # Don't auto-link default libraries.
     # Our libc is picolibc (lib/modules/log wires stdout to a UART FILE),
