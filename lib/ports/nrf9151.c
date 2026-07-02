@@ -236,7 +236,7 @@ r0p1 port. */
 
 /* Constants required to set up the initial stack. */
 #define portINITIAL_XPSR	(((xPSR_Type){.b.T = 1}).w)
-#define portINITIAL_EXEC_RETURN (0xfffffffd)
+#define portINITIAL_EXEC_RETURN (0xffffffbc)
 
 /* Let the user override the pre-loading of the initial LR with the address of
 prvTaskExitError() in case is messes up unwinding of the stack in the
