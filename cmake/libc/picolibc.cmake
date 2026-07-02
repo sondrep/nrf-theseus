@@ -79,5 +79,7 @@ if(CONFIG_PICOLIBC_IO_FLOAT)
     set(__INIT_FINI_ARRAY    1)
     set(__PICOCRT_ENABLE_MMU 0)
     set(__SEMIHOST           0)
+    set(NEWLIB_GLOBAL_ERRNO  ON)
+    #set(POSIX_IO OFF)
 
 add_subdirectory(../picolibc picolibc)

@@ -65,7 +65,8 @@ set(EXECUTABLE_NAME ${PROJECT_NAME}.elf)
 
 # The MCU startup/system file is the executable's first source.
 add_executable(${EXECUTABLE_NAME})
-add_library(nrfx EXCLUDE_FROM_ALL)
+add_library(nrfx_nonsecure EXCLUDE_FROM_ALL)
+add_library(nrfx_secure EXCLUDE_FROM_ALL)
 
 
 
@@ -160,15 +161,6 @@ function(theseus_mark_third_party_sources tgt)
         PROPERTIES COMPILE_OPTIONS "-w")
 endfunction()
 
-# nrfx is third-party, keep only its non-warning code-gen flags here
-# (these are PUBLIC because consumers rely on -ffunction-sections/-fdata-sections layout),
-# and silence its own warnings.
-target_compile_options(nrfx PUBLIC ${THESEUS_CPU_FLAGS}
-    -ffunction-sections -fdata-sections
-    -fno-common
-)
-theseus_mark_third_party(nrfx)
-
 
 add_compile_options(${THESEUS_CPU_FLAGS})
 
@@ -177,10 +169,31 @@ add_compile_options(${THESEUS_CPU_FLAGS})
 # Do not re-introduce a global add_link_options(--specs=nosys.specs ...) here:
 # it pulls newlib in next to picolibc and brings back the duplicate-symbol mess.
 
-target_compile_definitions(nrfx PUBLIC NRF_APPLICATION=1)
+# nrfx is third-party, keep only its non-warning code-gen flags here
+# (these are PUBLIC because consumers rely on -ffunction-sections/-fdata-sections layout),
+# and silence its own warnings.
+target_compile_options(nrfx_secure PUBLIC ${THESEUS_CPU_FLAGS}
+    -ffunction-sections -fdata-sections
+    -fno-common
+)
+theseus_mark_third_party(nrfx_secure)
+
+target_compile_definitions(nrfx_secure PUBLIC NRF_APPLICATION=1)
 
 # CMSIS is third-party: SYSTEM so its headers never warn inside our strict code.
-target_include_directories(nrfx SYSTEM PUBLIC ${CMSIS_PATH}/CMSIS/Core/Include)
+target_include_directories(nrfx_secure SYSTEM PUBLIC ${CMSIS_PATH}/CMSIS/Core/Include)
+
+target_compile_options(nrfx_nonsecure PUBLIC ${THESEUS_CPU_FLAGS}
+    -ffunction-sections -fdata-sections
+    -fno-common
+)
+theseus_mark_third_party(nrfx_nonsecure)
+
+target_compile_definitions(nrfx_nonsecure PUBLIC NRF_APPLICATION=1)
+
+# CMSIS is third-party: SYSTEM so its headers never warn inside our strict code.
+target_include_directories(nrfx_nonsecure SYSTEM PUBLIC ${CMSIS_PATH}/CMSIS/Core/Include)
+
 
 
 
@@ -243,7 +256,7 @@ add_subdirectory(lib)
 # ====================================================================================================
 
 # nrfx headers are third-party -> SYSTEM (keeps nrfy_*.h etc. quiet in our code).
-target_include_directories(nrfx SYSTEM PUBLIC
+target_include_directories(nrfx_secure SYSTEM PUBLIC
     ${NRFX_PATH}/drivers
     ${NRFX_PATH}/hal
     ${NRFX_PATH}/bsp/stable/templates
@@ -255,7 +268,7 @@ target_include_directories(nrfx SYSTEM PUBLIC
 
 # The repo's own include/ is first-party (nrfx_glue.h, nrfx_log.h, configs):
 # keep it as a normal include so warnings in our headers are still reported.
-target_include_directories(nrfx PUBLIC include)
+target_include_directories(nrfx_secure PUBLIC include)
 
 file(GLOB_RECURSE NRFX_SOURCES "${NRFX_PATH}/drivers/src/*.c")
 
@@ -264,13 +277,48 @@ foreach(drv IN LISTS NRFX_EXCLUDE)
     list(FILTER NRFX_SOURCES EXCLUDE REGEX "${NRFX_PATH}/drivers/src/nrfx_${drv}\\.c")
 endforeach()
 
-target_sources(nrfx PRIVATE
+target_sources(nrfx_secure PRIVATE
     ${NRFX_SOURCES}
     ${NRFX_PATH}/helpers/nrfx_flag32_allocator.c
 )
-target_compile_definitions(nrfx PRIVATE NRFX_CLOCK_ENABLED=1)
-target_link_libraries(nrfx PUBLIC c)
-target_link_libraries(${EXECUTABLE_NAME} PUBLIC nrfx c)
+target_compile_definitions(nrfx_secure PRIVATE NRFX_CLOCK_ENABLED=1)
+target_link_libraries(nrfx_secure PUBLIC c)
+
+# ====================================================================================================
+# nrfx (Nordic peripheral drivers)
+# Compile every driver under drivers/src, then exclude the ones this target does not use or that don't build for nRF54L.
+# ====================================================================================================
+
+# nrfx headers are third-party -> SYSTEM (keeps nrfy_*.h etc. quiet in our code).
+target_include_directories(nrfx_nonsecure SYSTEM PUBLIC
+    ${NRFX_PATH}/drivers
+    ${NRFX_PATH}/hal
+    ${NRFX_PATH}/bsp/stable/templates
+    ${NRFX_PATH}/bsp/stable
+    ${NRFX_PATH}/bsp/stable/mdk
+    ${NRFX_PATH}/drivers/include
+    ${NRFX_PATH}
+)
+
+# The repo's own include/ is first-party (nrfx_glue.h, nrfx_log.h, configs):
+# keep it as a normal include so warnings in our headers are still reported.
+target_include_directories(nrfx_nonsecure PUBLIC include)
+
+file(GLOB_RECURSE NRFX_SOURCES "${NRFX_PATH}/drivers/src/*.c")
+
+
+foreach(drv IN LISTS NRFX_EXCLUDE)
+    list(FILTER NRFX_SOURCES EXCLUDE REGEX "${NRFX_PATH}/drivers/src/nrfx_${drv}\\.c")
+endforeach()
+
+target_sources(nrfx_nonsecure PRIVATE
+    ${NRFX_SOURCES}
+    ${NRFX_PATH}/helpers/nrfx_flag32_allocator.c
+)
+target_compile_definitions(nrfx_nonsecure PRIVATE NRFX_CLOCK_ENABLED=1)
+target_link_libraries(nrfx_nonsecure PUBLIC c)
+target_compile_definitions(nrfx_nonsecure PUBLIC NRF_TRUSTZONE_NONSECURE=1)
+
 
 
 
@@ -307,11 +355,14 @@ target_link_options(${EXECUTABLE_NAME} PRIVATE
     -nodefaultlibs
 )
 
+# This line is EXTREMELY IMPORTANT. DO NOT REMOVE!
+target_link_libraries(${EXECUTABLE_NAME} PUBLIC nrfx_nonsecure c)
+
 # Re-add the runtime libs we actually need,
 # as a rescannable group so cross-references resolve no matter the link order.
 # 'c' is picolibc (also pulled in via nrfx), -lgcc and -lnosys close the group.
 target_link_libraries(${EXECUTABLE_NAME} PRIVATE
-    "$<LINK_GROUP:RESCAN,nrfx,c,freertos_kernel,-lgcc,-lnosys>"
+    "$<LINK_GROUP:RESCAN,nrfx_nonsecure,c,freertos_kernel,-lgcc,-lnosys>"
 )
 
 # NimBLE/mynewt code targets C90 for the kernel.

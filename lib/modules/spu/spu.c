@@ -5,9 +5,27 @@ static int spu_init(void)
 {
 	nrf_spu_int_enable(NRF_SPU, NRF_SPU_INT_PERIPHACCERR_MASK | NRF_SPU_INT_RAMACCERR_MASK);
 	nrf_spu_peripheral_set(NRF_SPU, NRFX_PERIPHERAL_ID_GET(NRF_POWER_NS_BASE), false, false,
-			       true);
+			       false);
 	nrf_spu_peripheral_set(NRF_SPU, NRFX_PERIPHERAL_ID_GET(NRF_IPC_NS_BASE), false, false,
-			       true);
+			       false);
+	nrf_spu_peripheral_set(NRF_SPU, NRFX_PERIPHERAL_ID_GET(NRF_P0_NS_BASE), false, false,
+			       false);
+	nrf_spu_peripheral_set(NRF_SPU, NRFX_PERIPHERAL_ID_GET(NRF_GPIOTE0_S_BASE), false, false,
+			       false);
+	nrf_spu_peripheral_set(NRF_SPU, NRFX_PERIPHERAL_ID_GET(NRF_RTC0_NS_BASE), false, false,
+			       false);
+	nrf_spu_peripheral_set(NRF_SPU, NRFX_PERIPHERAL_ID_GET(NRF_RTC1_NS_BASE), false, false,
+			       false);
+	nrf_spu_peripheral_set(NRF_SPU, NRFX_PERIPHERAL_ID_GET(NRF_GPIOTE1_NS_BASE), false, false,
+			       false);
+	nrf_spu_peripheral_set(NRF_SPU, NRFX_PERIPHERAL_ID_GET(NRF_UARTE0_S_BASE), false, false,
+			       false);
+	nrf_spu_peripheral_set(NRF_SPU, NRFX_PERIPHERAL_ID_GET(NRF_UARTE1_S_BASE), false, false,
+			       false);
+	nrf_spu_peripheral_set(NRF_SPU, NRFX_PERIPHERAL_ID_GET(NRF_UARTE2_S_BASE), false, false,
+			       false);
+	nrf_spu_peripheral_set(NRF_SPU, NRFX_PERIPHERAL_ID_GET(NRF_UARTE3_S_BASE), false, false,
+			       false);
 	// nrf_spu_peripheral_set(NRF_SPU, NRFX_PERIPHERAL_ID_GET(NRF_IPC_S_BASE), false, false,
 	// true);
 	//  nrf_spu_peripheral_set(NRF_SPU, NRFX_PERIPHERAL_ID_GET(NRF_FPU_NS_BASE), false, false,
