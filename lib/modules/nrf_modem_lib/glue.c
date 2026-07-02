@@ -4,6 +4,7 @@
 #include <nrf.h>
 #include "errno.h"
 #include <FreeRTOS.h>
+#include <nrfx_rtc.h>
 #include <stdlib.h>
 #include <portmacro.h>
 #include <semphr.h>
@@ -12,8 +13,10 @@
 #include <theseus/module.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <theseus/log.h>
 
 #define MODEM_OS_EVENT_BIT (1 << 0)
+#define WAIT_FOR_ANY_BIT   0xFFFFFF
 
 static EventGroupHandle_t modem_event_group;
 
@@ -56,11 +59,7 @@ void nrf_modem_os_free(void *mem)
 
 void nrf_modem_os_busywait(int32_t usec)
 {
-	const TickType_t start_ticks = xTaskGetTickCount();
-	TickType_t current_ticks;
-	do {
-		current_ticks = xTaskGetTickCount();
-	} while (pdTICKS_TO_MS(current_ticks - start_ticks) * 1000 < usec);
+	NRFX_DELAY_US(usec);
 }
 
 int32_t nrf_modem_os_timedwait(uint32_t context, int32_t *timeout)
@@ -74,16 +73,38 @@ int32_t nrf_modem_os_timedwait(uint32_t context, int32_t *timeout)
 	   All waiting threads shall be woken by nrf_modem_event_notify.
 	   A blind return value of zero will cause a blocking wait. */
 	const TickType_t current_ticks = xTaskGetTickCount();
+	EventBits_t ret;
+	TickType_t wait_ticks;
+
+	switch (*timeout) {
+	case NRF_MODEM_OS_FOREVER:
+		wait_ticks = portMAX_DELAY;
+		break;
+	case NRF_MODEM_OS_NO_WAIT:
+		wait_ticks = 0;
+		break;
+	default:
+		wait_ticks = pdMS_TO_TICKS(*timeout);
+		break;
+	}
 	if (context != 0) {
-		xEventGroupWaitBits(modem_event_group, 1 | (1 << context), pdTRUE, pdFALSE,
-				    pdMS_TO_TICKS(*timeout));
+		ret = xEventGroupWaitBits(modem_event_group, 1 | (1 << context), pdTRUE, pdFALSE,
+					  wait_ticks);
 	} else {
-		xEventGroupWaitBits(modem_event_group, -1, pdTRUE, pdFALSE,
-				    pdMS_TO_TICKS(*timeout));
+		ret = xEventGroupWaitBits(modem_event_group, WAIT_FOR_ANY_BIT, pdTRUE, pdFALSE,
+					  wait_ticks);
+	}
+	if (*timeout == NRF_MODEM_OS_FOREVER) {
+		return 0;
 	}
 	const TickType_t after_ticks = xTaskGetTickCount();
 
 	*timeout -= pdTICKS_TO_MS(after_ticks - current_ticks);
+
+	if (*timeout <= 0) {
+		LOG("TIMEOUT. EventBits_t: 0x%x\n", ret);
+		return -NRF_EAGAIN;
+	}
 
 	if (!nrf_modem_is_initialized()) {
 		return -NRF_ESHUTDOWN;
@@ -96,12 +117,22 @@ void nrf_modem_os_event_notify(uint32_t context)
 {
 	/* Notify the application that an event has occurred.
 	   This shall wake all threads sleeping in nrf_modem_os_timedwait. */
-	xEventGroupSetBits(modem_event_group, 1 << context);
+	if (context > 23) {
+		LOG("We are screwed mate. This is highly illegal. It is nearing a complete "
+		    "meltdown, we really need to get our shit together.\n");
+	}
+	BaseType_t woken;
+	if (nrf_modem_os_is_in_isr()) {
+		xEventGroupSetBitsFromISR(modem_event_group, 1 << context, &woken);
+		portYIELD_FROM_ISR(woken);
+	} else {
+		xEventGroupSetBits(modem_event_group, 1 << context);
+	}
 }
 
 int nrf_modem_os_sleep(uint32_t timeout)
 {
-	vTaskDelay(pdMS_TO_TICKS(timeout) / 1000);
+	vTaskDelay(pdMS_TO_TICKS(timeout));
 	return 0;
 }
 
@@ -124,7 +155,18 @@ int nrf_modem_os_sem_init(void **sem, unsigned int initial_count, unsigned int l
 	 * address of an already allocated semaphore is provided as an input, the allocation part is
 	 * skipped and the semaphore is only reinitialized.
 	 */
-	SemaphoreHandle_t handle = xSemaphoreCreateCounting(limit, initial_count);
+	SemaphoreHandle_t handle;
+	if (limit == 1) {
+		handle = xSemaphoreCreateBinary();
+		if (initial_count == 1) {
+			if (handle == NULL) {
+				return -NRF_ENOMEM;
+			}
+			xSemaphoreGive(handle);
+		}
+	} else {
+		handle = xSemaphoreCreateCounting(limit, initial_count);
+	}
 	if (handle == NULL) {
 		return -NRF_ENOMEM;
 	}
@@ -142,7 +184,7 @@ void nrf_modem_os_sem_give(void *sem)
 int nrf_modem_os_sem_take(void *sem, int timeout)
 {
 	/* Try to take a semaphore with the given timeout. */
-	if (xSemaphoreTake(sem, timeout) == pdFAIL) {
+	if (xSemaphoreTake(sem, pdMS_TO_TICKS(timeout)) == pdFAIL) {
 		return -NRF_EAGAIN;
 	}
 	return 0;
@@ -183,7 +225,7 @@ int nrf_modem_os_mutex_unlock(void *sem)
 
 int nrf_modem_os_mutex_lock(void *sem, int timeout)
 {
-	if (xSemaphoreTake(sem, timeout) == pdFAIL) {
+	if (xSemaphoreTake(sem, pdMS_TO_TICKS(timeout)) == pdFAIL) {
 		return -NRF_EAGAIN;
 	}
 	return 0;

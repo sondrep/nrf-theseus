@@ -236,7 +236,7 @@ r0p1 port. */
 
 /* Constants required to set up the initial stack. */
 #define portINITIAL_XPSR	(((xPSR_Type){.b.T = 1}).w)
-#define portINITIAL_EXEC_RETURN (0xfffffffd)
+#define portINITIAL_EXEC_RETURN (0xffffffbc)
 
 /* Let the user override the pre-loading of the initial LR with the address of
 prvTaskExitError() in case is messes up unwinding of the stack in the
@@ -554,9 +554,6 @@ void vPortSetupTimerInterrupt(void)
 	configASSERT(nrfx_rtc_init(&rtc_instance, &rtc_config, rtc_cb) == 0);
 	nrfx_rtc_tick_enable(&rtc_instance, true);
 	nrfx_rtc_enable(&rtc_instance);
-
-	NVIC_SetPriority(RTC1_IRQn, configKERNEL_INTERRUPT_PRIORITY);
-	NVIC_EnableIRQ(RTC1_IRQn);
 }
 
 void vPortYield(void)

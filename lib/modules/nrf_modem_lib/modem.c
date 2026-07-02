@@ -47,7 +47,7 @@ int modem_init(void)
 {
 	// struct nrf_modem_init_params *init_params_ptr = &init_params;
 	int err = nrf_modem_init(&init_params);
-	LOG("modem initialized, %d", err);
+	LOG("modem initialized, %d\n", err);
 	return err;
 }
 
