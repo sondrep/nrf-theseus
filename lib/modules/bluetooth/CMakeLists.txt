@@ -143,7 +143,7 @@ target_link_libraries(bluetooth PRIVATE
     tinycrypt
     mpsl
     softdevice_controller
-    nrfx freertos_config freertos_kernel c rng log
+    nrfx_nonsecure freertos_config freertos_kernel c rng log
 )
 
 # NimBLE is third-party, so silence the whole target.

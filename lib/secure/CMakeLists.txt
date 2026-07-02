@@ -1,5 +1,5 @@
 target_sources(secure.elf PRIVATE main_s.c)
-target_link_libraries(secure.elf PRIVATE nrfx spu c)
+target_link_libraries(secure.elf PRIVATE nrfx_secure spu c)
 target_include_directories(secure.elf PRIVATE
     ${FREERTOS_KERNEL_PATH}/portable/GCC/ARM_CM33/secure)
 
