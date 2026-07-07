@@ -24,16 +24,13 @@
  *
  */
 
-/* Standard includes. */
-// #include <stdio.h>
-// #include <stdlib.h>
-
 /* FreeRTOS includes. */
 #include "secure_port_macros.h"
 
 /* Device includes. */
 #include "nrf.h"
 #include <core_cm33.h>
+#include <spu.h>
 
 #if (__ARM_FEATURE_CMSE & 1) == 0
 #error "Need ARMv8-M security extensions"
@@ -68,12 +65,9 @@ static void prvSetupSPU(void);
 /* Secure main(). */
 int main(void)
 {
-	// printf("Booting Secure World.\r\n");
-
+	theseus_spu_init();
 	/* Set CP10 and CP11 full access from Non-Secure code. */
 	SCB_NS->CPACR |= ((3UL << 10 * 2) | (3UL << 11 * 2));
-
-	// prvSetupSPU();
 
 	/* Boot the non-secure code. */
 	prvBootNonSecure(mainNONSECURE_APP_START_ADDRESS);

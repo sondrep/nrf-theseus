@@ -82,4 +82,4 @@ if(CONFIG_PICOLIBC_IO_FLOAT)
     set(NEWLIB_GLOBAL_ERRNO  ON)
     #set(POSIX_IO OFF)
 
-add_subdirectory(../picolibc picolibc)
+add_subdirectory(../picolibc picolibc EXCLUDE_FROM_ALL)

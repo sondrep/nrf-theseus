@@ -9,10 +9,15 @@ target_sources(bluetooth PRIVATE hci.c)
 set(NIMBLE_PATH          "${CMAKE_SOURCE_DIR}/../mynewt-nimble")
 set(MYNEWT_CORE_PATH     "${CMAKE_SOURCE_DIR}/../mynewt-core")
 
-if(NOT DEFINED NIMBLE_SYSCFG_INCLUDE)
-    message(FATAL_ERROR
-       "NIMBLE_SYSCFG_INCLUDE not set - build with 'west build', not bare cmake.")
-endif()
+add_custom_target(nimble_syscfg
+  WORKING_DIRECTORY
+    ${CMAKE_SOURCE_DIR}
+  COMMENT
+    "Build nimble syscfg"
+  COMMAND
+    python3 scripts/west_commands/sysconfig_cmake.py ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}
+  VERBATIM
+  )
 
 file(GLOB_RECURSE NIMBLE_SOURCES
     "${NIMBLE_PATH}/nimble/**/*.c"
@@ -39,7 +44,7 @@ list(APPEND NIMBLE_SOURCES "${NIMBLE_PATH}/nimble/transport/src/transport.c")
 # NimBLE + mynewt-core are third-party:
 # mark their includes SYSTEM so the headers stay quiet even when our strict hci.c (and the sample mains) pull them in.
 target_include_directories(bluetooth SYSTEM PUBLIC
-    ${NIMBLE_SYSCFG_INCLUDE}                                   # generated syscfg.h (from west)
+    ${CMAKE_BINARY_DIR}/_sysconfig_nimble/bin/targets/nrf54/generated/include # generated syscfg.h (from west)
     ${NIMBLE_PATH}/porting/nimble/include
     ${NIMBLE_PATH}/porting/npl/freertos/include
     ${NIMBLE_PATH}/include
@@ -143,8 +148,10 @@ target_link_libraries(bluetooth PRIVATE
     tinycrypt
     mpsl
     softdevice_controller
-    nrfx_nonsecure freertos_config freertos_kernel c rng log
+    nrfx freertos_config freertos_kernel c rng log
 )
+
+add_dependencies(bluetooth nimble_syscfg)
 
 # NimBLE is third-party, so silence the whole target.
 # hci.c is our HCI transport shim, so opt it back into strict warnings + UBSan.

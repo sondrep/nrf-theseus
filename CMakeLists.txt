@@ -10,6 +10,8 @@ cmake_minimum_required(VERSION 3.15)
 
 
 
+
+
 # ====================================================================================================
 # Paths to the west-managed dependency checkouts (siblings of this repo).
 # ====================================================================================================
@@ -20,10 +22,15 @@ set(CMSIS_PATH           "${CMAKE_CURRENT_SOURCE_DIR}/../cmsis")
 
 set(MDK_DIR        ${CMAKE_SOURCE_DIR}/../nrfx/bsp/stable/mdk/)
 
+
 # Tells picolibc's build to compile its ARM TLS helpers (__aeabi_read_tp / _set_tls).
 # picolibc's own toolchain files set this, but we use our own, so define it here,
 # without it malloc/sbrk would fail to link with "undefined reference to __aeabi_read_tp".
 set(_HAVE_PICOLIBC_TLS_API 1)
+
+if(NOT DEFINED THESEUS_SECURE_APP)
+    set(THESEUS_SECURE_APP OFF)
+endif()
 
 if(NOT CMAKE_BUILD_TYPE)
    set(CMAKE_BUILD_TYPE Debug)
@@ -31,7 +38,7 @@ endif()
 
 set(CMAKE_C_FLAGS_RELEASE "-O2 -Werror")
 
-set(THESEUS_MODULES bluetooth log rng tinycrypt gpiote nrf_modem_lib spu)
+set(THESEUS_MODULES bluetooth log rng tinycrypt gpiote nrf_modem_lib)
 
 foreach(module IN LISTS THESEUS_MODULES)
 add_library(${module} EXCLUDE_FROM_ALL)
@@ -63,12 +70,49 @@ project(app LANGUAGES C ASM)
 
 set(EXECUTABLE_NAME ${PROJECT_NAME}.elf)
 
+add_custom_target(flash ALL
+  WORKING_DIRECTORY
+    ${CMAKE_CURRENT_BINARY_DIR}
+  DEPENDS
+    ${EXECUTABLE_NAME}
+  COMMENT
+    "Flash executable"
+  COMMAND
+    nrfutil device program --firmware ${EXECUTABLE_NAME} --options chip_erase_mode=ERASE_NONE,reset=RESET_DEFAULT
+  VERBATIM
+  )
+
+
+add_custom_target(secure_flash
+  WORKING_DIRECTORY
+    ${CMAKE_CURRENT_BINARY_DIR}
+  DEPENDS
+    lib/secure/secure.elf
+    $<TARGET_PROPERTY:flash,WEAK_DEPS> # Weak dependency since it does not matter which is flashed first
+  COMMENT
+    "Flash secure.elf"
+  COMMAND
+    nrfutil device program --firmware lib/secure/secure.elf --options chip_erase_mode=ERASE_NONE,reset=RESET_DEFAULT
+  VERBATIM
+  )
+
+add_custom_target(erase
+  WORKING_DIRECTORY
+    ${CMAKE_CURRENT_BINARY_DIR}
+  COMMENT
+    "erase device"
+  COMMAND
+    nrfutil device erase
+  VERBATIM
+  )
+
+add_dependencies(flash erase)
+add_dependencies(secure_flash erase)
+
 # The MCU startup/system file is the executable's first source.
-add_executable(${EXECUTABLE_NAME})
-add_library(nrfx_nonsecure EXCLUDE_FROM_ALL)
+add_executable(${EXECUTABLE_NAME} EXCLUDE_FROM_ALL)
+add_library(nrfx EXCLUDE_FROM_ALL)
 add_library(nrfx_secure EXCLUDE_FROM_ALL)
-
-
 
 # ====================================================================================================
 # Build target (board)
@@ -82,6 +126,40 @@ else()
 endif()
 
 add_subdirectory(boards)
+
+# ====================================================================================================
+# nrfx (Nordic peripheral drivers)
+# Compile every driver under drivers/src, then exclude the ones this target does not use or that don't build for nRF54L.
+# ====================================================================================================
+# nrfx headers are third-party -> SYSTEM (keeps nrfy_*.h etc. quiet in our code).
+target_include_directories(nrfx SYSTEM PUBLIC
+    ${NRFX_PATH}/drivers
+    ${NRFX_PATH}/hal
+    ${NRFX_PATH}/bsp/stable/templates
+    ${NRFX_PATH}/bsp/stable
+    ${NRFX_PATH}/bsp/stable/mdk
+    ${NRFX_PATH}/drivers/include
+    ${NRFX_PATH}
+)
+
+# The repo's own include/ is first-party (nrfx_glue.h, nrfx_log.h, configs):
+# keep it as a normal include so warnings in our headers are still reported.
+target_include_directories(nrfx PUBLIC include)
+
+file(GLOB_RECURSE NRFX_SOURCES "${NRFX_PATH}/drivers/src/*.c")
+
+
+foreach(drv IN LISTS NRFX_EXCLUDE)
+    list(FILTER NRFX_SOURCES EXCLUDE REGEX "${NRFX_PATH}/drivers/src/nrfx_${drv}\\.c")
+endforeach()
+
+target_sources(nrfx PRIVATE
+    ${NRFX_SOURCES}
+    ${NRFX_PATH}/helpers/nrfx_flag32_allocator.c
+)
+target_compile_definitions(nrfx PRIVATE NRFX_CLOCK_ENABLED=1)
+target_link_libraries(nrfx PUBLIC c)
+#
 
 # ====================================================================================================
 # Warning + sanitizer + analyzer policy
@@ -172,27 +250,17 @@ add_compile_options(${THESEUS_CPU_FLAGS})
 # nrfx is third-party, keep only its non-warning code-gen flags here
 # (these are PUBLIC because consumers rely on -ffunction-sections/-fdata-sections layout),
 # and silence its own warnings.
-target_compile_options(nrfx_secure PUBLIC ${THESEUS_CPU_FLAGS}
+
+target_compile_options(nrfx PUBLIC ${THESEUS_CPU_FLAGS}
     -ffunction-sections -fdata-sections
     -fno-common
 )
-theseus_mark_third_party(nrfx_secure)
+theseus_mark_third_party(nrfx)
 
-target_compile_definitions(nrfx_secure PUBLIC NRF_APPLICATION=1)
-
-# CMSIS is third-party: SYSTEM so its headers never warn inside our strict code.
-target_include_directories(nrfx_secure SYSTEM PUBLIC ${CMSIS_PATH}/CMSIS/Core/Include)
-
-target_compile_options(nrfx_nonsecure PUBLIC ${THESEUS_CPU_FLAGS}
-    -ffunction-sections -fdata-sections
-    -fno-common
-)
-theseus_mark_third_party(nrfx_nonsecure)
-
-target_compile_definitions(nrfx_nonsecure PUBLIC NRF_APPLICATION=1)
+target_compile_definitions(nrfx PUBLIC NRF_APPLICATION=1)
 
 # CMSIS is third-party: SYSTEM so its headers never warn inside our strict code.
-target_include_directories(nrfx_nonsecure SYSTEM PUBLIC ${CMSIS_PATH}/CMSIS/Core/Include)
+target_include_directories(nrfx SYSTEM PUBLIC ${CMSIS_PATH}/CMSIS/Core/Include)
 
 
 
@@ -222,14 +290,14 @@ endif()
 # FreeRTOS kernel
 # ====================================================================================================
 # freertos_config carries the FreeRTOSConfig.h include path to the kernel.
-add_library(freertos_config INTERFACE)
+add_library(freertos_config INTERFACE EXCLUDE_FROM_ALL)
 target_include_directories(freertos_config INTERFACE
     "${CMAKE_CURRENT_LIST_DIR}/include")
 
 set(FREERTOS_HEAP "4"                     CACHE STRING "" FORCE)  # heap_4.c
 set(FREERTOS_PORT "GCC_ARM_CM33_SECURE"   CACHE STRING "" FORCE)  # CM33 port
 
-add_subdirectory(${FREERTOS_KERNEL_PATH} FreeRTOS-Kernel)
+add_subdirectory(${FREERTOS_KERNEL_PATH} FreeRTOS-Kernel EXCLUDE_FROM_ALL)
 
 # The CM33 secure port ships secure_heap.c,
 # which defines its own pvPortMalloc/vPortFree over a small (10 KB) secure-side heap.
@@ -247,79 +315,6 @@ set_property(TARGET freertos_kernel_port PROPERTY SOURCES "${_frtos_port_sources
 add_subdirectory(samples)
 # Application library (Theseus console/log etc.).
 add_subdirectory(lib)
-
-
-
-# ====================================================================================================
-# nrfx (Nordic peripheral drivers)
-# Compile every driver under drivers/src, then exclude the ones this target does not use or that don't build for nRF54L.
-# ====================================================================================================
-
-# nrfx headers are third-party -> SYSTEM (keeps nrfy_*.h etc. quiet in our code).
-target_include_directories(nrfx_secure SYSTEM PUBLIC
-    ${NRFX_PATH}/drivers
-    ${NRFX_PATH}/hal
-    ${NRFX_PATH}/bsp/stable/templates
-    ${NRFX_PATH}/bsp/stable
-    ${NRFX_PATH}/bsp/stable/mdk
-    ${NRFX_PATH}/drivers/include
-    ${NRFX_PATH}
-)
-
-# The repo's own include/ is first-party (nrfx_glue.h, nrfx_log.h, configs):
-# keep it as a normal include so warnings in our headers are still reported.
-target_include_directories(nrfx_secure PUBLIC include)
-
-file(GLOB_RECURSE NRFX_SOURCES "${NRFX_PATH}/drivers/src/*.c")
-
-
-foreach(drv IN LISTS NRFX_EXCLUDE)
-    list(FILTER NRFX_SOURCES EXCLUDE REGEX "${NRFX_PATH}/drivers/src/nrfx_${drv}\\.c")
-endforeach()
-
-target_sources(nrfx_secure PRIVATE
-    ${NRFX_SOURCES}
-    ${NRFX_PATH}/helpers/nrfx_flag32_allocator.c
-)
-target_compile_definitions(nrfx_secure PRIVATE NRFX_CLOCK_ENABLED=1)
-target_link_libraries(nrfx_secure PUBLIC c)
-
-# ====================================================================================================
-# nrfx (Nordic peripheral drivers)
-# Compile every driver under drivers/src, then exclude the ones this target does not use or that don't build for nRF54L.
-# ====================================================================================================
-
-# nrfx headers are third-party -> SYSTEM (keeps nrfy_*.h etc. quiet in our code).
-target_include_directories(nrfx_nonsecure SYSTEM PUBLIC
-    ${NRFX_PATH}/drivers
-    ${NRFX_PATH}/hal
-    ${NRFX_PATH}/bsp/stable/templates
-    ${NRFX_PATH}/bsp/stable
-    ${NRFX_PATH}/bsp/stable/mdk
-    ${NRFX_PATH}/drivers/include
-    ${NRFX_PATH}
-)
-
-# The repo's own include/ is first-party (nrfx_glue.h, nrfx_log.h, configs):
-# keep it as a normal include so warnings in our headers are still reported.
-target_include_directories(nrfx_nonsecure PUBLIC include)
-
-file(GLOB_RECURSE NRFX_SOURCES "${NRFX_PATH}/drivers/src/*.c")
-
-
-foreach(drv IN LISTS NRFX_EXCLUDE)
-    list(FILTER NRFX_SOURCES EXCLUDE REGEX "${NRFX_PATH}/drivers/src/nrfx_${drv}\\.c")
-endforeach()
-
-target_sources(nrfx_nonsecure PRIVATE
-    ${NRFX_SOURCES}
-    ${NRFX_PATH}/helpers/nrfx_flag32_allocator.c
-)
-target_compile_definitions(nrfx_nonsecure PRIVATE NRFX_CLOCK_ENABLED=1)
-target_link_libraries(nrfx_nonsecure PUBLIC c)
-target_compile_definitions(nrfx_nonsecure PUBLIC NRF_TRUSTZONE_NONSECURE=1)
-
-
 
 
 # ====================================================================================================
@@ -343,10 +338,22 @@ theseus_mark_third_party(freertos_kernel_port)
 set(CMAKE_C_LINK_GROUP_USING_RESCAN_SUPPORTED TRUE)
 set(CMAKE_C_LINK_GROUP_USING_RESCAN "LINKER:--start-group" "LINKER:--end-group")
 
+if(NOT DEFINED THESEUS_SECURE_APP)
+    set(THESEUS_SECURE_APP OFF)
+endif()
+
+if(THESEUS_SECURE_APP)
+    set(APP_LINKER_SCRIPT ${LINKER_SCRIPT_NS})
+    target_compile_definitions(${EXECUTABLE_NAME} PUBLIC NRF_TRUSTZONE_NONSECURE=1)
+    target_compile_definitions(nrfx PUBLIC NRF_TRUSTZONE_NONSECURE=1)
+else()
+    set(APP_LINKER_SCRIPT ${LINKER_SCRIPT})
+endif()
+
 target_link_options(${EXECUTABLE_NAME} PRIVATE
     -mthumb -mcpu=cortex-m33 -mfloat-abi=hard -mfpu=fpv5-sp-d16 -g3
     -Wl,-gc-sections,--print-memory-usage,-Map=${PROJECT_BINARY_DIR}/${PROJECT_NAME}.map
-    -T ${LINKER_SCRIPT_NS}
+    -T ${APP_LINKER_SCRIPT}
     -L ${MDK_DIR}/
     # Don't auto-link default libraries.
     # Our libc is picolibc (lib/modules/log wires stdout to a UART FILE),
@@ -356,13 +363,13 @@ target_link_options(${EXECUTABLE_NAME} PRIVATE
 )
 
 # This line is EXTREMELY IMPORTANT. DO NOT REMOVE!
-target_link_libraries(${EXECUTABLE_NAME} PUBLIC nrfx_nonsecure c)
+target_link_libraries(${EXECUTABLE_NAME} PUBLIC nrfx c)
 
 # Re-add the runtime libs we actually need,
 # as a rescannable group so cross-references resolve no matter the link order.
 # 'c' is picolibc (also pulled in via nrfx), -lgcc and -lnosys close the group.
 target_link_libraries(${EXECUTABLE_NAME} PRIVATE
-    "$<LINK_GROUP:RESCAN,nrfx_nonsecure,c,freertos_kernel,-lgcc,-lnosys>"
+    "$<LINK_GROUP:RESCAN,nrfx,c,freertos_kernel,-lgcc,-lnosys>"
 )
 
 # NimBLE/mynewt code targets C90 for the kernel.

@@ -1,4 +1,3 @@
-
 #include <FreeRTOS.h>
 #include <task.h>
 #include <assert.h>
@@ -31,10 +30,6 @@ static int tcp_sock = -1;
 static char buf[512];
 
 static SemaphoreHandle_t cereg_sem;
-static TaskHandle_t task_handle;
-static EventGroupHandle_t notif_handler_event;
-
-void http_task(void *param);
 
 static void notif_handler(const char *notif)
 {
@@ -90,22 +85,22 @@ static void test(void)
 	}};
 
 	memcpy(buf, HTTP_HEAD, HTTP_HEAD_LEN);
-	// int size = snprintf(
-	//	buf, sizeof(buf),
-	//	"GET %s HTTP/1.1\r\n"		 // Request line
-	//	"Host: %s\r\n"			 // Host header (required)
-	//	"User-Agent: MyCProgram/1.0\r\n" // Identify client (optional but recommended)
-	//	"\r\n",				 // End of headers (double CRLF)
-	//	"/", HOST);
+	int size = snprintf(
+		buf, sizeof(buf),
+		"HEAD %s HTTP/1.1\r\n"		 // Request line
+		"Host: %s\r\n"			 // Host header (required)
+		"User-Agent: MyCProgram/1.0\r\n" // Identify client (optional but recommended)
+		"\r\n",				 // End of headers (double CRLF)
+		"/", HOST);
 
 	off = 0;
 	do {
-		bytes = nrf_send(tcp_sock, buf + off, HTTP_HEAD_LEN, 0);
+		bytes = nrf_send(tcp_sock, buf + off, size, 0);
 		if (bytes < 0) {
 			LOG("send() failed, bytes = %ld\n", bytes);
 		}
 		off += bytes;
-	} while (off < HTTP_HEAD_LEN);
+	} while (off < size);
 
 	LOG("Sent %ld bytes\n", off);
 
@@ -145,7 +140,7 @@ static void test(void)
 	}
 }
 
-void http_task(void *param)
+static void http_task(void *param)
 {
 	int err;
 
@@ -153,7 +148,6 @@ void http_task(void *param)
 	if (err != 0) {
 		LOG("[APP] nrf_modem_init_failed error: %d\n", err);
 	}
-	notif_handler_event = xEventGroupCreate();
 
 	cereg_sem = xSemaphoreCreateBinary();
 
@@ -184,8 +178,7 @@ int main(void)
 
 	LOG("This is a joe mama sample\n");
 
-	BaseType_t ok =
-		xTaskCreate(http_task, "http", 2048, NULL, tskIDLE_PRIORITY + 2, &task_handle);
+	BaseType_t ok = xTaskCreate(http_task, "http", 2048, NULL, tskIDLE_PRIORITY + 2, NULL);
 	assert(ok == pdPASS);
 
 	LOG("[APP] starting scheduler\n");

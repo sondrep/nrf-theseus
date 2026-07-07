@@ -33,18 +33,6 @@ void nrf_modem_os_shutdown(void)
 	vEventGroupDelete(modem_event_group);
 }
 
-void *nrf_modem_os_shm_tx_alloc(size_t bytes)
-{
-	/* Allocate a buffer on the TX area of shared memory. */
-	return malloc(bytes);
-}
-
-void nrf_modem_os_shm_tx_free(void *mem)
-{
-	/* Free a shared memory buffer in the TX area. */
-	free(mem);
-}
-
 void *nrf_modem_os_alloc(size_t bytes)
 {
 	/* Allocate a buffer on the library heap. */

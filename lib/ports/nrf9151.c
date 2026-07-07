@@ -235,9 +235,12 @@ r0p1 port. */
 #define portTOP_BIT_OF_BYTE		((uint8_t)0x80)
 
 /* Constants required to set up the initial stack. */
-#define portINITIAL_XPSR	(((xPSR_Type){.b.T = 1}).w)
+#define portINITIAL_XPSR (((xPSR_Type){.b.T = 1}).w)
+#ifdef NRF_TRUSTZONE_NONSECURE
 #define portINITIAL_EXEC_RETURN (0xffffffbc)
-
+#else
+#define portINITIAL_EXEC_RETURN (0xfffffffd)
+#endif
 /* Let the user override the pre-loading of the initial LR with the address of
 prvTaskExitError() in case is messes up unwinding of the stack in the
 debugger. */
