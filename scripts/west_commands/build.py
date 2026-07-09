@@ -95,9 +95,9 @@ class Build(WestCommand):
                f'-DNIMBLE_SYSCFG_INCLUDE={nimble_include}']
         # Use Ninja for faster parallel builds when available,
         # unless the caller picked a generator via `-- -G ...`.
-        if not any(a == '-G' or a.startswith('-G') for a in extra_args):
-            if shutil.which('ninja'):
-                cmd += ['-G', 'Ninja']
+        #if not any(a == '-G' or a.startswith('-G') for a in extra_args):
+            #if shutil.which('ninja'):
+                #cmd += ['-G', 'Ninja']
         if args.board:
             cmd.append(f'-DTHESEUS_BUILD_TARGET={args.board}')
         cmd.extend(extra_args)
