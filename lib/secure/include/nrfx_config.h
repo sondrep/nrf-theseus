@@ -13,11 +13,6 @@
 #define NRFX_CONFIG_API_VER_MINOR 3
 #define NRFX_CONFIG_API_VER_MICRO 0
 
-/* Pull in Kconfig-generated defines (CONFIG_NRFX_*, CONFIG_SOC_*, ...) */
-#if __has_include("autoconf.h")
-#include "autoconf.h"
-#endif
-
 /*
  * Map Kconfig CONFIG_NRFX_<peripheral> symbols to the NRFX_<peripheral>_ENABLED
  * defines that nrfx driver sources check.

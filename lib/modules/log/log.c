@@ -12,10 +12,9 @@
 #include <semphr.h>
 #include <theseus/log.h>
 #include <theseus/module.h>
+#include <board.h>
 
-#define BOARD_CONSOLE_TX_PIN	 NRF_GPIO_PIN_MAP(1, 4)
-#define BOARD_CONSOLE_UARTE_INST NRF_UARTE20
-#define CONSOLE_BAUD		 NRF_UARTE_BAUDRATE_115200
+#define CONSOLE_BAUD NRF_UARTE_BAUDRATE_115200
 
 SemaphoreHandle_t xPrintMutex;
 static volatile uint8_t tx_byte __attribute__((aligned(4)));
@@ -87,4 +86,4 @@ static int console_init(void)
 	return 0;
 }
 
-THESEUS_MODULE_SET(log) = {.init = console_init};
+THESEUS_MODULE_SET(log) = {.init = console_init, .stage = THESEUS_MODULE_STAGE_EARLY};
