@@ -1,11 +1,11 @@
-# nrf_modem only supports nRF91 SoCs, so only build it when the sample actually needs it 
-# (checked via theseus_module_needed() in CMakeLists.txt)
-theseus_module_needed(nrf_modem_lib THESEUS_NEED_NRF_MODEM)
-
-if(THESEUS_NEED_NRF_MODEM)
-
 target_sources(nrf_modem_lib PUBLIC modem.c shmem.c)
 theseus_mark_first_party(nrf_modem_lib modem.c shmem.c)
+
+# The modem only exists on nRF91 boards, 
+# nrfxlib itself refuses to configure for anything else,
+# so only pull it in on boards that set CONFIG_NRF_MODEM_SOC
+# (see cmake/targets/nrf9151.cmake)
+if(DEFINED CONFIG_NRF_MODEM_SOC)
 
 set(CONFIG_NRF_MODEM_LINK_BINARY ON)
 set(CONFIG_NRF_MODEM_LINK_BINARY_CELLULAR ON)
@@ -34,10 +34,5 @@ target_include_directories(nrf_modem_lib PUBLIC ${NRFXLIB_PATH}/nrf_modem/includ
 # secure/non-secure split -- depend on the executable target directly, not
 # a flashing target, so `west build` never touches hardware).
 add_dependencies(nrf_modem_lib secure.elf)
-
-else()
-
-# Empty stub so the unused library target still has a source to build.
-target_sources(nrf_modem_lib PRIVATE stub.c)
 
 endif()

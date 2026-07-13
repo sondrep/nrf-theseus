@@ -272,23 +272,12 @@ set_property(TARGET freertos_kernel_port PROPERTY SOURCES "${_frtos_port_sources
 # Application samples (selected via -DSAMPLE_DIRECTORY by `west build`).
 add_subdirectory(samples)
 
-# Only build a module's real sources if the selected sample actually links it (checked via theseus_module_needed() below).
+# Which library modules the selected sample actually links (used below to
+# pick the linker script for the TrustZone split).
 get_target_property(THESEUS_LINKED_LIBS ${EXECUTABLE_NAME} LINK_LIBRARIES)
 if(NOT THESEUS_LINKED_LIBS)
     set(THESEUS_LINKED_LIBS "")
 endif()
-
-# Records whether a module is needed as a GLOBAL property, 
-# so any CMakeLists.txt in the project can look it up regardless of where it lives.
-function(theseus_module_needed name out_var)
-    if(${name} IN_LIST THESEUS_LINKED_LIBS)
-        set(${out_var} TRUE PARENT_SCOPE)
-        set_property(GLOBAL PROPERTY THESEUS_NEED_${name} TRUE)
-    else()
-        set(${out_var} FALSE PARENT_SCOPE)
-        set_property(GLOBAL PROPERTY THESEUS_NEED_${name} FALSE)
-    endif()
-endfunction()
 
 # Application library (Theseus console/log etc.).
 add_subdirectory(lib)
@@ -319,8 +308,7 @@ set(CMAKE_C_LINK_GROUP_USING_RESCAN "LINKER:--start-group" "LINKER:--end-group")
 # TrustZone secure/non-secure split: 
 # only nrf_modem_lib needs it (see lib/secure/spu.c),
 # so enable it whenever the sample links that module.
-get_property(_theseus_need_nrf_modem GLOBAL PROPERTY THESEUS_NEED_nrf_modem_lib)
-if(_theseus_need_nrf_modem)
+if(nrf_modem_lib IN_LIST THESEUS_LINKED_LIBS)
     set(APP_LINKER_SCRIPT ${LINKER_SCRIPT_NS})
     target_compile_definitions(${EXECUTABLE_NAME} PUBLIC NRF_TRUSTZONE_NONSECURE=1)
     target_compile_definitions(nrfx PUBLIC NRF_TRUSTZONE_NONSECURE=1)
