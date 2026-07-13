@@ -10,21 +10,22 @@
 #include <sys/lock.h>
 #include <stdint.h>
 
-extern void *shmem_tx_addr;
-extern void *shmem_tx_size;
+/* Heap region reserved by the linker script (scripts/linker), 
+ * placed after .bss with an explicit HEAP_SIZE. */
+extern char _end;
+extern char __HeapLimit;
 
-static char *brk = (char *)(((uint32_t)(&shmem_tx_addr)));
+static char *brk = &_end;
 
 void *sbrk(ptrdiff_t incr)
 {
 	if (incr < 0) {
-		if ((size_t)(brk - (char *)(((uint32_t)(&shmem_tx_addr)))) < (size_t)(-incr)) {
+		if ((size_t)(brk - &_end) < (size_t)(-incr)) {
 			errno = ENOMEM;
 			return (void *)-1;
 		}
 	} else {
-		if ((size_t)((char *)(((uint32_t)(&shmem_tx_addr))) + ((uint32_t)(&shmem_tx_size)) -
-			     brk) < (size_t)incr) {
+		if ((size_t)(&__HeapLimit - brk) < (size_t)incr) {
 			errno = ENOMEM;
 			return (void *)-1;
 		}

@@ -36,7 +36,13 @@ void nrf_modem_os_shutdown(void)
 void *nrf_modem_os_alloc(size_t bytes)
 {
 	/* Allocate a buffer on the library heap. */
-	return malloc(bytes);
+	void *mem = malloc(bytes);
+
+	if (mem == NULL) {
+		LOG("nrf_modem_os_alloc(%u) failed: heap exhausted\n", (unsigned int)bytes);
+	}
+
+	return mem;
 }
 
 void nrf_modem_os_free(void *mem)
