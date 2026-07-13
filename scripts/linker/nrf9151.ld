@@ -31,6 +31,10 @@ shmem_size = shmem_end_addr - shmem_start_addr; /* 0xe4e8 */
 _rom_location = _rom_start_addr + _rom_offset; /* 0x50000 */
 _ram_location = _ram_start_addr + _ram_offset + shmem_size; /* 0x2001e4e8 */
 
+/* Application heap (malloc), used by eks: nrf_modem_lib. 
+ * Must NOT alias the shmem_* region above,
+ * that memory is reserved for modem IPC. */
+HEAP_SIZE = 0x2000; /* 8 KiB */
 
 MEMORY
 {

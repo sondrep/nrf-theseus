@@ -35,19 +35,24 @@ west flash
 > sudo apt install golang-go
 > ```
 
+> **Note:** Building requires the `arm-none-eabi` GCC toolchain (targets the Cortex-M33 on nRF54L/nRF91). Install it before building:
+>
+> ```shell
+> sudo apt install gcc-arm-none-eabi
+> ```
+
 --------------------------------------------------
 
 <br>
-<br>
-<br>
 
 ## Build configuration
-First-party code is built with extra checks by default to catch bugs during
-development. The useful build flags:
+First-party code is built with extra checks by default to catch bugs during development.
+The useful build flags:
 
 - `-p` - pristine (clean) build.
-- `-DTHESEUS_UBSAN=OFF` - drops UBSan for a smaller release image.
+- `-DTHESEUS_UBSAN=OFF` - by default, UBSan (trap mode) catches undefined behavior (overflow, out-of-bounds shifts, null derefs, etc.) at runtime, this flag drops it for a smaller release image.
+- `-DTHESEUS_FAULT_HANDLERS=OFF` - by default, HardFault/BusFault/etc. handlers print crash info over UART, this flag drops them for a smaller release image.
 
 ```shell
-west build -s SAMPLE_NAME -b TARGET_BOARD -p -DTHESEUS_UBSAN=OFF
+west build -s SAMPLE_NAME -b TARGET_BOARD -p -DTHESEUS_UBSAN=OFF -DTHESEUS_FAULT_HANDLERS=OFF
 ```
