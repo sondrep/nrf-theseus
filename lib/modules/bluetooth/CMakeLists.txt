@@ -3,17 +3,7 @@
 # Sources are globbed
 # tests, apps, mesh, audio and the per-driver transport files are excluded, and only the single transport.c shim is kept.
 # Generated syscfg headers come in via NIMBLE_SYSCFG_INCLUDE (set by west).
-#
-# Not all samples need bluetooth, so only build NimBLE/SDC/MPSL when the selected sample actually links it.
 # ====================================================================================================
-theseus_module_needed(bluetooth THESEUS_NEED_BLUETOOTH)
-if(NOT THESEUS_NEED_BLUETOOTH)
-
-# Empty stub so the unused library target still has a source to build.
-target_sources(bluetooth PRIVATE stub.c)
-
-else()
-
 target_sources(bluetooth PRIVATE hci.c)
 
 set(NIMBLE_PATH          "${CMAKE_SOURCE_DIR}/../mynewt-nimble")
@@ -167,5 +157,3 @@ add_dependencies(bluetooth nimble_syscfg)
 # hci.c is our HCI transport shim, so opt it back into strict warnings + UBSan.
 theseus_mark_third_party(bluetooth)
 theseus_mark_first_party(bluetooth hci.c)
-
-endif() # THESEUS_NEED_BLUETOOTH

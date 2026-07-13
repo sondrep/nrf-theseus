@@ -23,14 +23,7 @@ class Flash(WestCommand):
             'to ERASE_ALL on each program). Use --program-chip-erase-mode ERASE_ALL for the old '
             'behavior.\n'
             '\n'
-            'If the build produced a TrustZone secure image '
-            '(lib/secure/secure.elf, built automatically whenever a sample needs it, e.g. the modem sample), '
-            'both secure.elf and app.elf are programmed, '
-            'secure.elf first with --no-reset so it cannot boot and reconfigure the SPU before app.elf is written. '
-            'Only app.elf is programmed otherwise. '
-            'Pass --file to flash one specific image instead and skip this.\n'
-            '\n'
-            'Extra arguments are forwarded to each "nrfutil device program" call. ',
+            'Extra arguments are forwarded to the final "nrfutil device program" (app image).',
             accepts_unknown_args=True,
         )
 
@@ -46,8 +39,7 @@ class Flash(WestCommand):
         )
         parser.add_argument(
             '--file', default=None,
-            help='flash only this firmware file, skipping secure+app auto-detection '
-                 '(default: app.elf, plus lib/secure/secure.elf in build dir if present)',
+            help='firmware file to flash (default: app.elf in build dir)',
         )
         parser.add_argument(
             '--snr', default=None,
@@ -89,24 +81,13 @@ class Flash(WestCommand):
         build_dir = os.path.abspath(args.build_dir or 'build')
 
         if args.file:
-            # Explicit --file: flash exactly that image, no secure/app auto-detection.
-            firmwares = [os.path.abspath(args.file)]
+            firmware = os.path.abspath(args.file)
         else:
-            app = os.path.join(build_dir, 'app.elf')
-            secure = os.path.join(build_dir, 'lib', 'secure', 'secure.elf')
-            firmwares = []
-            if os.path.isfile(secure):
-                # secure.elf must be written (and left un-reset) before app.elf:
-                # if it boots first it configures the SPU and exits, and by the
-                # time the probe writes app.elf its secure access can no longer
-                # touch the now-non-secure-marked flash region.
-                firmwares.append(secure)
-            firmwares.append(app)
+            firmware = os.path.join(build_dir, 'app.elf')
 
-        for firmware in firmwares:
-            if not os.path.isfile(firmware):
-                self.die(f'Firmware not found: {firmware}\n'
-                         f'  Run "west build" first.')
+        if not os.path.isfile(firmware):
+            self.die(f'Firmware not found: {firmware}\n'
+                     f'  Run "west build" first.')
 
         snr_args = []
         if args.snr:
@@ -129,15 +110,14 @@ class Flash(WestCommand):
                 'Erasing device',
             )
 
-        for firmware in firmwares:
-            self._run(
-                [nrfutil, 'device', 'program']
-                + prog_erase_opts
-                + ['--firmware', firmware]
-                + snr_args
-                + unknown_args,
-                f'Programming {os.path.basename(firmware)} ({firmware})',
-            )
+        self._run(
+            [nrfutil, 'device', 'program']
+            + prog_erase_opts
+            + ['--firmware', firmware]
+            + snr_args
+            + unknown_args,
+            f'Programming {os.path.basename(firmware)}',
+        )
 
         if not args.no_reset:
             self._run(

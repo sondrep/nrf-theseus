@@ -73,20 +73,10 @@ void theseus_spu_init(void)
 	SCB->SHCSR |= SCB_SHCSR_SECUREFAULTENA_Msk;
 }
 
-/*
- * secure.elf has no console, 
- * so unlike lib/ports/fault.c this can't print anything.
- * Spin forever instead of returning,
- * so a debugger can halt and inspect IPSR/PC rather than the fault looping indefinitely.
- */
 void SecureFault_Handler(void)
 {
-	for (;;) {
-	}
 }
 
 void SPU_IRQHandler(void)
 {
-	for (;;) {
-	}
 }

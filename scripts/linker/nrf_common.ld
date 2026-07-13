@@ -387,10 +387,6 @@ SECTIONS
     . = ALIGN(4);
     . = SEGMENT_START("ldata-segment", .);
 
-    /* May be set by the target-specific linker script before including this file,
-     * falls back to a default here so the .heap section below always reserves real space for sbrk()-based allocators. */
-    HEAP_SIZE = DEFINED(HEAP_SIZE) ? HEAP_SIZE : 0x1000;
-
     . = ALIGN(4);
     .heap . (COPY): {
         __heap_start = .;
@@ -401,7 +397,6 @@ SECTIONS
         PROVIDE(_end = .);
         PROVIDE(__end__ = .);
         KEEP(*(.heap*))
-        . = . + HEAP_SIZE;
         __HeapLimit = .;
         __heap_limit = .;
     } > RAM
