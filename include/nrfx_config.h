@@ -46,6 +46,9 @@
 #ifdef CONFIG_NRFX_CRACEN
 #define NRFX_CRACEN_ENABLED 1
 #endif
+#ifdef CONFIG_NRFX_CLOCK
+#define NRFX_CLOCK_ENABLED 1
+#endif
 
 /* SoC-specific config from the nrfx templates */
 #include "nrfx_templates_config.h"

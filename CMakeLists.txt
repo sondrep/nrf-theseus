@@ -8,6 +8,9 @@
 
 cmake_minimum_required(VERSION 3.15)
 
+# Export a compile_commands.json on configure (used by clang-based tooling).
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 
 
 # ====================================================================================================
@@ -31,10 +34,18 @@ endif()
 
 set(CMAKE_C_FLAGS_RELEASE "-O2 -Werror")
 
-set(THESEUS_MODULES bluetooth log rng tinycrypt gpiote nrf_modem_lib)
+set(THESEUS_MODULES
+    bluetooth
+    log
+    rng
+    tinycrypt
+    gpiote
+    nrf_modem_lib
+    nfc
+)
 
 foreach(module IN LISTS THESEUS_MODULES)
-add_library(${module} EXCLUDE_FROM_ALL)
+    add_library(${module} EXCLUDE_FROM_ALL)
 endforeach()
 
 
@@ -305,7 +316,7 @@ theseus_mark_third_party(freertos_kernel_port)
 set(CMAKE_C_LINK_GROUP_USING_RESCAN_SUPPORTED TRUE)
 set(CMAKE_C_LINK_GROUP_USING_RESCAN "LINKER:--start-group" "LINKER:--end-group")
 
-# TrustZone secure/non-secure split: 
+# TrustZone secure/non-secure split:
 # only nrf_modem_lib needs it (see lib/secure/spu.c),
 # so enable it whenever the sample links that module.
 if(nrf_modem_lib IN_LIST THESEUS_LINKED_LIBS)
