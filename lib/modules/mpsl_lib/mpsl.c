@@ -55,6 +55,7 @@ static void fault_handler_(const char *file, const uint32_t line)
 static int mpsl_init_(void)
 {
 	mpsl_lp_mutex = xSemaphoreCreateRecursiveMutex();
+	assert(mpsl_lp_mutex != NULL);
 	NVIC_SetPriority(RADIO_0_IRQn, MPSL_HIGH_IRQ_PRIORITY);
 	NVIC_SetPriority(GRTC_3_IRQn, MPSL_HIGH_IRQ_PRIORITY);
 	NVIC_SetPriority(TIMER10_IRQn, MPSL_HIGH_IRQ_PRIORITY);
@@ -69,7 +70,7 @@ static int mpsl_init_(void)
 		&mpsl_lp_task_handle); /* save handle so the ISR can notify it */
 	assert(ok = pdPASS);
 
-	int32_t return_value = 0;
+	int32_t return_value;
 	return_value = mpsl_init(NULL, SWI03_IRQn, fault_handler_);
 	assert(return_value == 0);
 
@@ -78,8 +79,6 @@ static int mpsl_init_(void)
 
 	return_value = mpsl_clock_hfclk_src_request(MPSL_CLOCK_HF_SRC_XO, hfclk_started_cb);
 	assert(return_value == 0);
-
-	// mpsl_timeslot_session_count_set(timeslot_mem, 1);
 
 	NVIC_ClearPendingIRQ(RADIO_0_IRQn);
 	NVIC_ClearPendingIRQ(GRTC_0_IRQn);

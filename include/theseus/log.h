@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <FreeRTOS.h>
 #include <semphr.h>
+#include <nrf.h>
+#include <task.h>
 
 /* Serializes console output across tasks. Created by console_init(). */
 extern SemaphoreHandle_t xPrintMutex;
@@ -23,10 +25,17 @@ extern SemaphoreHandle_t xPrintMutex;
  */
 #define LOG(...)                                                                                   \
 	do {                                                                                       \
-		xSemaphoreTake(xPrintMutex, portMAX_DELAY);                                        \
-		printf(__VA_ARGS__);                                                               \
-		fflush(stdout);                                                                    \
-		xSemaphoreGive(xPrintMutex);                                                       \
+		if (__get_IPSR() == 0U) {                                                          \
+			xSemaphoreTake(xPrintMutex, portMAX_DELAY);                                \
+			printf(__VA_ARGS__);                                                       \
+			fflush(stdout);                                                            \
+			xSemaphoreGive(xPrintMutex);                                               \
+		} else {                                                                           \
+			if (xSemaphoreTakeFromISR(xPrintMutex, NULL)) {                            \
+				printf(__VA_ARGS__);                                               \
+				fflush(stdout);                                                    \
+				xSemaphoreGiveFromISR(xPrintMutex, NULL);                          \
+			}                                                                          \
+		}                                                                                  \
 	} while (0)
-
 #endif /* LOG_H */

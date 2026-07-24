@@ -4,21 +4,21 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
+#include "mpsl.h"
+#include "zb_nrf_platform.h"
+#include <string.h>
+#include <FreeRTOS.h>
 #include <nrf_802154.h>
 #include <nrf_802154_const.h>
 #include <nrf_802154_nrfx_addons.h>
 #include <nrf_802154_types.h>
-#include <string.h>
-#include <zboss_api.h>
-#include <zb_macll.h>
-#include <zb_transceiver.h>
-#include "zb_nrf_platform.h"
-#include <FreeRTOS.h>
+#include <queue.h>
 #include <semphr.h>
 #include <theseus/log.h>
 #include <theseus/module.h>
-#include <queue.h>
-#include "mpsl.h"
+#include <zb_macll.h>
+#include <zb_transceiver.h>
+#include <zboss_api.h>
 
 #if defined(CONFIG_NRF_802154_CALLBACKS_DISPATCHER)
 #include <net/nrf_802154_callbacks_dispatcher.h>
@@ -237,17 +237,19 @@ void zb_trans_set_promiscuous_mode(zb_bool_t enabled)
 void zb_trans_enter_receive(void)
 {
 	LOG("%s\n", __func__);
-	bool started = nrf_802154_receive();
-	LOG("nrf_802154_receive: %d\n", started);
-	if (started) {
-		nrf5_data.state = ZB_RADIO_STATE_RECEIVE;
+
+	while (!nrf_802154_receive()) {
+		LOG("Radio could not change state to receive, retry\n");
 	}
+	nrf5_data.state = ZB_RADIO_STATE_RECEIVE;
 }
 
 void zb_trans_enter_sleep(void)
 {
 	LOG("%s\n", __func__);
-	(void)nrf_802154_sleep_if_idle();
+	while (nrf_802154_sleep_if_idle() != NRF_802154_SLEEP_ERROR_NONE) {
+		LOG("Radio could not change state to sleep, retry\n");
+	}
 	nrf5_data.state = ZB_RADIO_STATE_SLEEP;
 }
 
@@ -539,7 +541,8 @@ static void zigbee_nrf_802154_received_timestamp_raw(uint8_t *p_data, int8_t pow
 
 static void zigbee_nrf_802154_receive_failed(nrf_802154_rx_error_t error, uint32_t id)
 {
-	LOG("Receive failed: error=%d, id=%u\n", error, (unsigned int)id);
+	(void)error;
+	(void)id;
 	nrf5_data.rx.last_frame_ack_fpb = false;
 }
 

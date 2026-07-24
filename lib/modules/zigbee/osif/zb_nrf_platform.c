@@ -590,6 +590,7 @@ void zb_osif_abort(void)
 {
 	/* Log ZBOSS error message and flush logs. */
 	LOG("ZBOSS fatal error occurred");
+	while (1);
 }
 
 uint32_t zigbee_pibcache_pan_id_clear(void)

@@ -58,8 +58,9 @@ static void uart_rx_notify(zb_bufid_t bufid)
 	uart_rx_buf_len = 0;
 	uart_rx_buf_offset = 0;
 	uart_rx_buf = NULL;
-	xTimerStop(uart_rx_timer, portMAX_DELAY);
-	xSemaphoreGive(rx_done_sem);
+	BaseType_t ok = xTimerStop(uart_rx_timer, portMAX_DELAY);
+	assert(ok == pdPASS);
+	ok = xSemaphoreGive(rx_done_sem);
 
 	if (rx_data_cb) {
 		rx_data_cb(DEFAULT_SINGLE_PORT_INSTANCE, rx_buf, rx_buf_len);

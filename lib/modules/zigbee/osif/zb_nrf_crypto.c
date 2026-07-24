@@ -7,6 +7,7 @@
 #include <zboss_api.h>
 #include <theseus/rng.h>
 #include <tinycrypt/aes.h>
+#include <ocrypto_curve25519.h>
 #include <assert.h>
 
 #include "zb_nrf_crypto.h"
@@ -46,6 +47,6 @@ void zb_osif_aes128_hw_encrypt(const zb_uint8_t *key, const zb_uint8_t *msg, zb_
 zb_int_t zb_osif_scalarmult(zb_uint8_t *result_point, const zb_uint8_t *scalar,
 			    const zb_uint8_t *point)
 {
-
+	ocrypto_curve25519_scalarmult(result_point, scalar, point);
 	return 0;
 }

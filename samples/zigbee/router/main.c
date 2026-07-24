@@ -11,18 +11,20 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
-#include <stdio.h>
+#include <assert.h>
 #include <ctype.h>
 #include <stddef.h>
-#include <zb_nrf_platform.h>
-#include <zboss_api.h>
-#include <theseus/log.h>
+#include <stdio.h>
 #include <FreeRTOS.h>
-#include <task.h>
-#include <assert.h>
 #include <mpsl.h>
 #include <mpsl_clock.h>
 #include <nrfx_clock.h>
+#include <nrfx_gpiote.h>
+#include <task.h>
+#include <theseus/gpiote.h>
+#include <theseus/log.h>
+#include <zb_nrf_platform.h>
+#include <zboss_api.h>
 
 /* Number of retries until the pin value stabilizes. */
 #define READ_RETRIES 10
@@ -679,20 +681,23 @@ void zigbee_led_status_update(zb_bufid_t bufid, uint32_t led_idx)
 	zb_zdo_app_signal_type_t sig = zb_get_app_signal(bufid, &p_sg_p);
 	zb_ret_t status = ZB_GET_APP_SIGNAL_STATUS(bufid);
 
+	nrfx_gpiote_t *gpiote_instance = theseus_gpiote_get();
+	const nrfx_gpiote_output_config_t gpiote_output_cfg = NRFX_GPIOTE_DEFAULT_OUTPUT_CONFIG;
+	nrfx_gpiote_output_configure(gpiote_instance, led_idx, &gpiote_output_cfg, NULL);
 	switch (sig) {
 	case ZB_BDB_SIGNAL_DEVICE_REBOOT:
 	/* fall-through */
 	case ZB_BDB_SIGNAL_STEERING:
 		if (status == RET_OK) {
-			// dk_set_led_on(led_idx);
+			nrfx_gpiote_out_set(gpiote_instance, led_idx);
 		} else {
-			// dk_set_led_off(led_idx);
+			nrfx_gpiote_out_clear(gpiote_instance, led_idx);
 		}
 		break;
 
 	case ZB_ZDO_SIGNAL_LEAVE:
 		/* Update network status LED */
-		// dk_set_led_off(led_idx);
+		nrfx_gpiote_out_clear(gpiote_instance, led_idx);
 		break;
 
 	default:
@@ -931,12 +936,12 @@ static void change_panid(zb_uint8_t param)
  * @brief Zigbee application template.
  */
 
-#include <zboss_api.h>
-#include <zb_nrf_platform.h>
-#include <theseus/gpiote.h>
 #include "zb_range_extender.h"
 #include <board.h>
+#include <theseus/gpiote.h>
 #include <theseus/log.h>
+#include <zb_nrf_platform.h>
+#include <zboss_api.h>
 
 /* Device endpoint, used to receive ZCL commands. */
 #define APP_TEMPLATE_ENDPOINT 10
@@ -1027,31 +1032,28 @@ static void identify_cb(zb_bufid_t bufid)
  */
 static void start_identifying(void *arg)
 {
-	while (1) {
-		if (ZB_JOINED()) {
-			/* Check if endpoint is in identifying mode,
-			 * if not put desired endpoint in identifying mode.
-			 */
-			if (dev_ctx.identify_attr.identify_time ==
-			    ZB_ZCL_IDENTIFY_IDENTIFY_TIME_DEFAULT_VALUE) {
+	if (ZB_JOINED()) {
+		/* Check if endpoint is in identifying mode,
+		 * if not put desired endpoint in identifying mode.
+		 */
+		if (dev_ctx.identify_attr.identify_time ==
+		    ZB_ZCL_IDENTIFY_IDENTIFY_TIME_DEFAULT_VALUE) {
 
-				zb_ret_t zb_err_code =
-					zb_bdb_finding_binding_target(APP_TEMPLATE_ENDPOINT);
+			zb_ret_t zb_err_code = zb_bdb_finding_binding_target(APP_TEMPLATE_ENDPOINT);
 
-				if (zb_err_code == RET_OK) {
-					LOG("Enter identify mode\n");
-				} else if (zb_err_code == RET_INVALID_STATE) {
-					LOG("RET_INVALID_STATE - Cannot enter identify mode\n");
-				} else {
-					LOG("start identifying failed, err = %d\n", zb_err_code);
-				}
+			if (zb_err_code == RET_OK) {
+				LOG("Enter identify mode\n");
+			} else if (zb_err_code == RET_INVALID_STATE) {
+				LOG("RET_INVALID_STATE - Cannot enter identify mode\n");
 			} else {
-				LOG("Cancel identify mode\n");
-				zb_bdb_finding_binding_target_cancel();
+				LOG("start identifying failed, err = %d\n", zb_err_code);
 			}
 		} else {
-			LOG("Device not in a network - cannot enter identify mode\n");
+			LOG("Cancel identify mode\n");
+			zb_bdb_finding_binding_target_cancel();
 		}
+	} else {
+		LOG("Device not in a network - cannot enter identify mode\n");
 	}
 }
 
@@ -1064,7 +1066,7 @@ void zboss_signal_handler(zb_bufid_t bufid)
 {
 	int err = 0;
 	/* Update network status LED. */
-	// zigbee_led_status_update(bufid, ZIGBEE_NETWORK_STATE_LED);
+	zigbee_led_status_update(bufid, ZIGBEE_NETWORK_STATE_LED);
 
 	/* No application-specific behavior is required.
 	 * Call default signal handler.
@@ -1100,12 +1102,12 @@ int main(void)
 	zigbee_enable();
 
 	LOG("Zigbee R23 application template started\n");
-	BaseType_t ret = xTaskCreate(start_identifying, "identifying", 1024, NULL, 2, NULL);
-	if (ret != pdPASS) {
-		LOG("Failed to create task in main().\n");
-	}
+	// BaseType_t ret = xTaskCreate(start_identifying, "identifying", 1024, NULL, 2, NULL);
+	// if (ret != pdPASS) {
+	//	LOG("Failed to create task in main().\n");
+	// }
 
-	// ZB_SCHEDULE_APP_CALLBACK(start_identifying, 0);
+	ZB_SCHEDULE_APP_CALLBACK(start_identifying, 0);
 	vTaskStartScheduler();
 
 	return 0;

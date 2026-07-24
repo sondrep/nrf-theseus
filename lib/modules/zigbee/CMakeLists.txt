@@ -38,8 +38,13 @@ add_subdirectory(osif)
 # ZBoss: Zigbee protocol
 # ====================================================================================================
 target_include_directories(zigbee SYSTEM PUBLIC ${ZBOSS_PATH}/include)
+target_include_directories(zigbee SYSTEM PUBLIC ${ZBOSS_PATH}/include/addons)
 target_include_directories(zigbee SYSTEM PUBLIC ${ZBOSS_PATH}/include/osif)
 target_include_directories(zigbee SYSTEM PUBLIC ${ZBOSS_PATH}/src/include)
+
+# Oberon:
+target_include_directories(zigbee SYSTEM PUBLIC ${NRFXLIB_PATH}/crypto/nrf_oberon/include)
+target_link_libraries(zigbee PUBLIC ${NRFXLIB_PATH}/crypto/nrf_oberon/lib/cortex-m33/hard-float/liboberon_3.0.19.a)
 
 target_compile_definitions(zigbee PUBLIC
  LIBZBOSS_CONFIG_FILE=<${ZBOSS_PATH}/include/osif/libzboss_config.h>)
