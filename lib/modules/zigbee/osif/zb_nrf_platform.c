@@ -278,7 +278,7 @@ int zigbee_init(void)
 	zigbee_mutex = xSemaphoreCreateMutex();
 	zigbee_event_semaphore = xSemaphoreCreateBinary();
 	schedule_semaphore = xSemaphoreCreateBinary();
-	xTaskCreate(zb_app_cb_process_schedule, "zigbee work", 1024, NULL, 2, NULL);
+	xTaskCreate(zb_app_cb_process_schedule, "zigbee work", 1024, NULL, 3, NULL);
 	// k_work_init(&zb_app_cb_work, zb_app_cb_process_schedule);
 
 #if ZB_TRACE_LEVEL
@@ -590,7 +590,9 @@ void zb_osif_abort(void)
 {
 	/* Log ZBOSS error message and flush logs. */
 	LOG("ZBOSS fatal error occurred");
-	while (1);
+	return;
+	while (1)
+		;
 }
 
 uint32_t zigbee_pibcache_pan_id_clear(void)

@@ -28,11 +28,20 @@ target_link_libraries(nrf-802154-platform PUBLIC nrfx)
 target_link_libraries(zigbee PUBLIC nrf-802154-driver nrf-802154-sl nrf-802154-driver-interface tinycrypt freertos_kernel)
 target_compile_definitions(nrf-802154-platform PUBLIC NRF_802154_HIGH_PRECISION_TIMER_INSTANCE_NO=21)
 
+get_target_property(compile_defs zigbee COMPILE_DEFINITIONS)
+foreach( cd ${compile_defs} )
+if(${cd} STREQUAL "CONFIG_ZIGBEE_ROLE_END_DEVICE=1")
+set(ZBOSS_PATH_EXTENSION ".ed")
+endif()
+endforeach()
+
 add_library(zboss INTERFACE)
-target_link_libraries(zboss INTERFACE ${ZBOSS_PATH}/lib/cortex-m33/hard-float/libzboss.a  ${ZBOSS_PATH}/lib/cortex-m33/hard-float/libgppb.a)
+target_link_libraries(zboss INTERFACE ${ZBOSS_PATH}/lib/cortex-m33/hard-float/libzboss${ZBOSS_PATH_EXTENSION}.a  ${ZBOSS_PATH}/lib/cortex-m33/hard-float/libgppb.a)
 target_link_libraries(zigbee PUBLIC zboss gppi)
 target_link_libraries(zboss INTERFACE rng tinycrypt log)
 add_subdirectory(osif)
+
+
 
 # ====================================================================================================
 # ZBoss: Zigbee protocol
@@ -47,7 +56,7 @@ target_include_directories(zigbee SYSTEM PUBLIC ${NRFXLIB_PATH}/crypto/nrf_obero
 target_link_libraries(zigbee PUBLIC ${NRFXLIB_PATH}/crypto/nrf_oberon/lib/cortex-m33/hard-float/liboberon_3.0.19.a)
 
 target_compile_definitions(zigbee PUBLIC
- LIBZBOSS_CONFIG_FILE=<${ZBOSS_PATH}/include/osif/libzboss_config.h>)
+ LIBZBOSS_CONFIG_FILE=<${ZBOSS_PATH}/include/osif/libzboss_config${ZBOSS_PATH_EXTENSION}.h>)
 file(GLOB_RECURSE ZBOSS_SOURCES "${ZBOSS_PATH}/src/*.c")
 list(FILTER ZBOSS_SOURCES EXCLUDE REGEX "${ZBOSS_PATH}/src/zcl/zb_zcl_s_metering.c")
 target_sources(zboss PUBLIC ${ZBOSS_SOURCES})
