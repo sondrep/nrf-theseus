@@ -1,5 +1,11 @@
 set(LINKER_SCRIPT ${MDK_DIR}/nrf54l15_xxaa_application.ld)
-set(THESEUS_CPU_FLAGS -mthumb -mcpu=cortex-m33 -mfloat-abi=hard -mfpu=fpv5-sp-d16 -g3)
+set(THESEUS_CPU_FLAGS
+    -mthumb
+    -mcpu=cortex-m33
+    -mfloat-abi=hard
+    -mfpu=fpv5-sp-d16
+    -g3
+)
 
 target_sources(${EXECUTABLE_NAME} PRIVATE ${MDK_DIR}/gcc_startup_nrf54l15_application.S ${MDK_DIR}/system_nrf54l.c)
 # app.elf mixes vendor sources (MDK system_nrf54l.c, startup .S) with first-party sources (port/module/main).
@@ -22,6 +28,14 @@ set(SDC_FLOAT_TYPE ${MPSL_FLOAT_TYPE} CACHE STRING "SoftDevice Controller librar
 
 # Drivers excluded from the build (unused here or unsupported on nRF54L).
 set(NRFX_EXCLUDE
-    adc bellboard comp ipc mramc nvmc qspi rng
+    adc bellboard comp ipc mramc nvmc power qspi rng
     rtc rtc_legacy spi spis tbm tdm twi uart usbd usbreg vevif
 )
+
+# The nRF54L15's Cortex-M33 has a hardware FPU,
+# so we build with the hard-float ABI
+# (this is why THESEUS_CPU_FLAGS uses -mfloat-abi=hard)
+#
+# Set to OFF to link the soft-float prebuilt libraries instead.
+# (eks: -DTHESEUS_FPU=OFF)
+option(THESEUS_FPU "Target has an FPU / uses the hard-float ABI" ON)
