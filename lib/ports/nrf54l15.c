@@ -39,6 +39,9 @@
 #include <nrfx_grtc.h>
 #include <nrfx_gpiote.h>
 #include <stdio.h> /* printf() in the application safety-net hooks */
+#include <theseus/grtc.h>
+#include <theseus/log.h>
+#include <assert.h>
 
 /* SYSCOUNTER is 1 MHz, so counts-per-tick = 1 MHz/tick_rate */
 #define GRTC_SYSCOUNTER_FREQ_HZ 1000000UL
@@ -71,18 +74,17 @@ __attribute__((naked)) void vPortStartFirstTask(void)
 		" cpsie f               \n"
 		" dsb                   \n"
 		" isb                   \n"
-#ifdef SOFTDEVICE_PRESENT
-		/* Block kernel interrupts only (PendSV) before calling SVC */
+		/* Mask kernel-priority interrupts (PendSV) until SVC has loaded the first
+		 * task's stack pointer. High-priority interrupts such as the GRTC tick or
+		 * MPSL can fire between enabling interrupts above and the SVC below; if one
+		 * of them pends PendSV here, PendSV would run with PSP still zero and
+		 * HardFault. The SVC handler clears BASEPRI once the task context (and PSP)
+		 * is established, at which point the pending PendSV runs safely. */
 		" mov r0, %0            \n"
 		" msr basepri, r0       \n"
-#endif
 		" svc 0                 \n" /* System call to start first task. */
 		"                       \n"
-		" .align 2              \n"
-#ifdef SOFTDEVICE_PRESENT
-		::"i"(configKERNEL_INTERRUPT_PRIORITY << (8 - configPRIO_BITS))
-#endif
-	);
+		" .align 2              \n" ::"i"(configKERNEL_INTERRUPT_PRIORITY));
 }
 
 /*-----------------------------------------------------------*/
@@ -383,7 +385,9 @@ BaseType_t xPortStartScheduler(void)
 #endif /* conifgASSERT_DEFINED */
 
 	/* Make PendSV the lowest priority interrupts. */
-	NVIC_SetPriority(PendSV_IRQn, configKERNEL_INTERRUPT_PRIORITY);
+	NVIC_SetPriority(PendSV_IRQn, configLIBRARY_LOWEST_INTERRUPT_PRIORITY);
+
+	__set_BASEPRI(configKERNEL_INTERRUPT_PRIORITY);
 
 	/* Start the timer that generates the tick ISR.  Interrupts are disabled
 	here already. */
@@ -556,38 +560,14 @@ static void increment_tick_cb(int32_t id, uint64_t cc_value, void *p_context)
  * This replaces the usual SysTick timer used on most Cortex-M ports. */
 void vPortSetupTimerInterrupt(void)
 {
-	/* Drive the GRTC from the external low-frequency crystal (LFXO) for an accurate, stable
-	 * tick. */
-	nrfx_grtc_clock_source_set(NRF_GRTC_CLKSEL_LFXO);
+	grtc_channel = theseus_grtc_global_channel_get();
+	assert(nrfx_grtc_ready_check() == true);
 
-	/* Bring up the GRTC step by step.
-	 * Every call below returns 0 when it works,
-	 * configASSERT halts here loudly if any step fails,
-	 * so a broken timer is caught immediately instead of hanging silently later.
-	 */
-
-	/* Initialise the GRTC driver (interrupt priority 0). */
-	configASSERT(nrfx_grtc_init(0) == 0);
-
-	/* Start the 1 MHz system counter and claim a compare channel for ticks. */
-	configASSERT(nrfx_grtc_syscounter_start(0, &grtc_channel) == 0);
-
-	/* Allow that channel to raise a compare interrupt (our tick source). */
-	configASSERT(nrfx_grtc_syscounter_cc_int_enable(grtc_channel) == 0);
-
-	/* Sanity checks (these return true when OK):
-	 *   - the counter is up and its value can be trusted
-	 *   - the compare interrupt really got enabled on our channel
-	 */
-	configASSERT(nrfx_grtc_ready_check());
-	configASSERT(nrfx_grtc_syscounter_cc_int_enable_check(grtc_channel));
-
-	/* Point the channel at our tick handler and arm the very first tick,
-	 * the handler has obligation itself to re-arms every tick after this.
-	 */
 	nrfx_grtc_channel_callback_set(grtc_channel, increment_tick_cb, NULL);
 	nrfx_grtc_syscounter_cc_rel_set(grtc_channel, GRTC_COUNTS_PER_TICK,
 					NRFX_GRTC_CC_RELATIVE_COMPARE);
+
+	assert(nrfx_grtc_syscounter_cc_int_enable_check(grtc_channel));
 }
 
 void vPortYield(void)

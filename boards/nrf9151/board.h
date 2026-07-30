@@ -43,8 +43,8 @@ extern "C" {
 
 /* ---- Console UART (VCOM0 on DK) -------------------------------------- */
 
-#ifndef BOARD_CONSOLE_UARTE_INST
-#define BOARD_CONSOLE_UARTE_INST NRF_UARTE0
+#ifndef BOARD_CONSOLE_UARTE_INDEX
+#define BOARD_CONSOLE_UARTE_INDEX 0
 #endif
 #ifndef BOARD_CONSOLE_TX_PIN
 #define BOARD_CONSOLE_TX_PIN NRF_GPIO_PIN_MAP(0, 27)
@@ -58,8 +58,8 @@ extern "C" {
 
 /* ---- Application UART (VCOM2 on DK) ---------------------------------- */
 
-#ifndef BOARD_APP_UARTE_INST
-#define BOARD_APP_UARTE_INST NRF_UARTE30
+#ifndef BOARD_APP_UARTE_INDEX
+#define BOARD_APP_UARTE_INDEX 30
 #endif
 #ifndef BOARD_APP_UARTE_TX_PIN
 #define BOARD_APP_UARTE_TX_PIN NRF_GPIO_PIN_MAP(0, 0)

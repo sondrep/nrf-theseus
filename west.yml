@@ -107,6 +107,12 @@ manifest:
       path: tinycrypt
       revision: v0.2.8
 
+    - name: zigbee
+      remote: ncs
+      repo-path: ncs-zigbee
+      path: ncs-zigbee
+      revision: v1.3.0
+
   self:
     path: nrf-theseus
     west-commands: scripts/west-commands.yml

@@ -442,16 +442,16 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 {
 	struct ble_hci_cmd *cmd = (struct ble_hci_cmd *)buf;
 
-  	uint16_t opcode = le16toh(cmd->opcode);
-  	uint8_t ogf = BLE_HCI_OGF(opcode);
-  	uint8_t ocf = BLE_HCI_OCF(opcode);
-  	uint8_t params[256];
-  	memcpy(params, cmd->data, cmd->length);
-  	void *data = params;
-  	uint8_t err = NRF_EOPNOTSUPP;
-  	struct ble_hci_ev *hci_ev = (struct ble_hci_ev *)cmd;
-  	void *rspbuf = hci_ev->data + sizeof(struct ble_hci_ev_command_complete);
-  	bool generate_command_status = false;
+	uint16_t opcode = le16toh(cmd->opcode);
+	uint8_t ogf = BLE_HCI_OGF(opcode);
+	uint8_t ocf = BLE_HCI_OCF(opcode);
+	uint8_t params[256];
+	memcpy(params, cmd->data, cmd->length);
+	void *data = params;
+	uint8_t err = NRF_EOPNOTSUPP;
+	struct ble_hci_ev *hci_ev = (struct ble_hci_ev *)cmd;
+	void *rspbuf = hci_ev->data + sizeof(struct ble_hci_ev_command_complete);
+	bool generate_command_status = false;
 
 	switch (ogf) {
 	case 0x01:
@@ -1414,21 +1414,21 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 		break;
 	}
 
-	if (generate_command_status){
-    	struct ble_hci_ev_command_status *cmd_status = (void *)hci_ev->data;
-    	hci_ev->opcode = BLE_HCI_EVCODE_COMMAND_STATUS;
-    	hci_ev->length = sizeof(struct ble_hci_ev_command_status);
-    	cmd_status->status = err;
-    	cmd_status->num_packets = 1;
-    	cmd_status->opcode = htole16(opcode);
-  	} else {
-    	struct ble_hci_ev_command_complete *cmd_complete = (void *)hci_ev->data;
-    	hci_ev->opcode = BLE_HCI_EVCODE_COMMAND_COMPLETE;
-    	hci_ev->length += sizeof(struct ble_hci_ev_command_complete);
-    	cmd_complete->status = err;
-    	cmd_complete->num_packets = 1;
-    	cmd_complete->opcode = htole16(opcode);
-  	}
+	if (generate_command_status) {
+		struct ble_hci_ev_command_status *cmd_status = (void *)hci_ev->data;
+		hci_ev->opcode = BLE_HCI_EVCODE_COMMAND_STATUS;
+		hci_ev->length = sizeof(struct ble_hci_ev_command_status);
+		cmd_status->status = err;
+		cmd_status->num_packets = 1;
+		cmd_status->opcode = htole16(opcode);
+	} else {
+		struct ble_hci_ev_command_complete *cmd_complete = (void *)hci_ev->data;
+		hci_ev->opcode = BLE_HCI_EVCODE_COMMAND_COMPLETE;
+		hci_ev->length += sizeof(struct ble_hci_ev_command_complete);
+		cmd_complete->status = err;
+		cmd_complete->num_packets = 1;
+		cmd_complete->opcode = htole16(opcode);
+	}
 
 	ble_transport_to_hs_evt(hci_ev);
 

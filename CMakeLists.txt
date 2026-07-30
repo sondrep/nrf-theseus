@@ -34,15 +34,7 @@ endif()
 
 set(CMAKE_C_FLAGS_RELEASE "-O2 -Werror")
 
-set(THESEUS_MODULES
-    bluetooth
-    log
-    rng
-    tinycrypt
-    gpiote
-    nrf_modem_lib
-    nfc
-)
+set(THESEUS_MODULES bluetooth log rng tinycrypt gpiote nrf_modem_lib zigbee gppi grtc mpsl_lib)
 
 foreach(module IN LISTS THESEUS_MODULES)
     add_library(${module} EXCLUDE_FROM_ALL)
@@ -104,6 +96,9 @@ add_subdirectory(boards)
 target_include_directories(nrfx SYSTEM PUBLIC
     ${NRFX_PATH}/drivers
     ${NRFX_PATH}/hal
+    ${NRFX_PATH}/haly
+    ${NRFX_PATH}/helpers
+    ${NRFX_PATH}/bsp/stable/soc/interconnect
     ${NRFX_PATH}/bsp/stable/templates
     ${NRFX_PATH}/bsp/stable
     ${NRFX_PATH}/bsp/stable/mdk
@@ -125,8 +120,10 @@ endforeach()
 target_sources(nrfx PRIVATE
     ${NRFX_SOURCES}
     ${NRFX_PATH}/helpers/nrfx_flag32_allocator.c
+    ${NRFX_PATH}/helpers/nrfx_gppi_dppi.c
+    ${NRFX_PATH}/bsp/stable/soc/interconnect/nrfx_gppi_d2ppi.c
 )
-target_compile_definitions(nrfx PRIVATE NRFX_CLOCK_ENABLED=1)
+target_compile_definitions(nrfx PUBLIC NRFX_CLOCK_ENABLED=1)
 target_link_libraries(nrfx PUBLIC c)
 
 
@@ -341,12 +338,13 @@ target_link_options(${EXECUTABLE_NAME} PRIVATE
 
 # This line is EXTREMELY IMPORTANT. DO NOT REMOVE!
 target_link_libraries(${EXECUTABLE_NAME} PUBLIC nrfx c)
+# I REPEAT, DO NOT REMOVE THE LINE ABOVE!
 
 # Re-add the runtime libs we actually need,
 # as a rescannable group so cross-references resolve no matter the link order.
 # 'c' is picolibc (also pulled in via nrfx), -lgcc and -lnosys close the group.
 target_link_libraries(${EXECUTABLE_NAME} PRIVATE
-    "$<LINK_GROUP:RESCAN,nrfx,c,freertos_kernel,-lgcc,-lnosys>"
+    "$<LINK_GROUP:RESCAN,nrfx,c,-lgcc,-lnosys>"
 )
 
 # NimBLE/mynewt code targets C90 for the kernel.

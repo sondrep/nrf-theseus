@@ -85,34 +85,20 @@ typedef uint64_t TickType_t;
 extern void vPortEnterCritical(void);
 extern void vPortExitCritical(void);
 
-#if (configNUMBER_OF_CORES == 1)
-/* preserve current interrupt state and then disable interrupts */
-#define portENTER_CRITICAL()                                                                       \
-	do {                                                                                       \
-	} while (0)
-
-/* restore previously preserved interrupt state */
-#define portEXIT_CRITICAL()                                                                        \
-	do {                                                                                       \
-	} while (0)
-#else
-
 /* The port can maintain the critical nesting count in TCB or maintain the critical
  * nesting count in the port. */
 #define portCRITICAL_NESTING_IN_TCB 1
 
 /* vTaskEnterCritical and vTaskExitCritical should be used in the implementation
  * of portENTER/EXIT_CRITICAL if the number of cores is more than 1 in the system. */
-#define portENTER_CRITICAL	    vTaskEnterCritical
-#define portEXIT_CRITICAL	    vTaskExitCritical
+#define portENTER_CRITICAL vTaskEnterCritical
+#define portEXIT_CRITICAL  vTaskExitCritical
 
 /* vTaskEnterCriticalFromISR and vTaskExitCriticalFromISR should be used in the
  * implementation of portENTER/EXIT_CRITICAL_FROM_ISR if the number of cores is
  * more than 1 in the system. */
 #define portENTER_CRITICAL_FROM_ISR vTaskEnterCriticalFromISR
 #define portEXIT_CRITICAL_FROM_ISR  vTaskExitCriticalFromISR
-
-#endif /* if ( configNUMBER_OF_CORES == 1 ) */
 
 extern void vPortYield(void);
 #define portYIELD() vPortYield()

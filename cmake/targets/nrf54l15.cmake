@@ -18,7 +18,9 @@ target_sources(${EXECUTABLE_NAME} PRIVATE ${MDK_DIR}/gcc_startup_nrf54l15_applic
 set_source_files_properties(${MDK_DIR}/gcc_startup_nrf54l15_application.S
     TARGET_DIRECTORY ${EXECUTABLE_NAME}
     PROPERTIES COMPILE_OPTIONS "-w")
-target_compile_definitions(nrfx PUBLIC NRF54L15_XXAA=1)
+target_compile_definitions(nrfx PUBLIC NRF54L15_XXAA=1 NRF_CONFIG_CPU_FREQ_MHZ=128
+    NRFX_GRTC_CONFIG_NUM_OF_CC_CHANNELS=4
+    NRFX_GRTC_CONFIG_ALLOWED_CC_CHANNELS_MASK=0x0000000f)
 set(MPSL_SOC "nrf54l" CACHE STRING "MPSL library SoC variant")
 set(MPSL_FLOAT_TYPE "hard-float" CACHE STRING "MPSL library float type")
 set(SDC_SOC ${MPSL_SOC} CACHE STRING "SoftDevice Controller library SoC variant")

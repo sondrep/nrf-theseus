@@ -57,7 +57,7 @@ if(CONFIG_PICOLIBC_IO_FLOAT)
     else()
         set(__PREFER_SIZE_OVER_SPEED OFF)
     endif()
-
+    set(CONFIG_PICOLIBC_MULTITHREAD=1)
     if(CONFIG_PICOLIBC_MULTITHREAD)
         set(__SINGLE_THREAD OFF)
         set(__THREAD_LOCAL_STORAGE ON)
@@ -83,3 +83,4 @@ if(CONFIG_PICOLIBC_IO_FLOAT)
     #set(POSIX_IO OFF)
 
 add_subdirectory(../picolibc picolibc EXCLUDE_FROM_ALL)
+#target_compile_options(c PRIVATE "--enable-newlib-multithread=yes")
