@@ -10,8 +10,6 @@ cmake_minimum_required(VERSION 3.15)
 
 
 
-
-
 # ====================================================================================================
 # Paths to the west-managed dependency checkouts (siblings of this repo).
 # ====================================================================================================
@@ -22,15 +20,10 @@ set(CMSIS_PATH           "${CMAKE_CURRENT_SOURCE_DIR}/../cmsis")
 
 set(MDK_DIR        ${CMAKE_SOURCE_DIR}/../nrfx/bsp/stable/mdk/)
 
-
 # Tells picolibc's build to compile its ARM TLS helpers (__aeabi_read_tp / _set_tls).
 # picolibc's own toolchain files set this, but we use our own, so define it here,
 # without it malloc/sbrk would fail to link with "undefined reference to __aeabi_read_tp".
 set(_HAVE_PICOLIBC_TLS_API 1)
-
-if(NOT DEFINED THESEUS_SECURE_APP)
-    set(THESEUS_SECURE_APP OFF)
-endif()
 
 if(NOT CMAKE_BUILD_TYPE)
    set(CMAKE_BUILD_TYPE Debug)
@@ -70,49 +63,12 @@ project(app LANGUAGES C ASM)
 
 set(EXECUTABLE_NAME ${PROJECT_NAME}.elf)
 
-add_custom_target(flash ALL
-  WORKING_DIRECTORY
-    ${CMAKE_CURRENT_BINARY_DIR}
-  DEPENDS
-    ${EXECUTABLE_NAME}
-  COMMENT
-    "Flash executable"
-  COMMAND
-    nrfutil device program --firmware ${EXECUTABLE_NAME} --options chip_erase_mode=ERASE_NONE,reset=RESET_SYSTEM
-  VERBATIM
-  )
-
-
-add_custom_target(secure_flash
-  WORKING_DIRECTORY
-    ${CMAKE_CURRENT_BINARY_DIR}
-  DEPENDS
-    lib/secure/secure.elf
-    $<TARGET_PROPERTY:flash,WEAK_DEPS> # Weak dependency since it does not matter which is flashed first
-  COMMENT
-    "Flash secure.elf"
-  COMMAND
-    nrfutil device program --firmware lib/secure/secure.elf --options chip_erase_mode=ERASE_NONE,reset=RESET_SYSTEM
-  VERBATIM
-  )
-
-add_custom_target(erase
-  WORKING_DIRECTORY
-    ${CMAKE_CURRENT_BINARY_DIR}
-  COMMENT
-    "erase device"
-  COMMAND
-    nrfutil device erase
-  VERBATIM
-  )
-
-add_dependencies(flash erase)
-add_dependencies(secure_flash erase)
-
 # The MCU startup/system file is the executable's first source.
-add_executable(${EXECUTABLE_NAME} EXCLUDE_FROM_ALL)
+add_executable(${EXECUTABLE_NAME})
 add_library(nrfx EXCLUDE_FROM_ALL)
 add_library(nrfx_secure EXCLUDE_FROM_ALL)
+
+
 
 # ====================================================================================================
 # Build target (board)
@@ -126,6 +82,8 @@ else()
 endif()
 
 add_subdirectory(boards)
+
+
 
 # ====================================================================================================
 # nrfx (Nordic peripheral drivers)
@@ -164,7 +122,8 @@ target_sources(nrfx PRIVATE
 )
 target_compile_definitions(nrfx PUBLIC NRFX_CLOCK_ENABLED=1)
 target_link_libraries(nrfx PUBLIC c)
-#
+
+
 
 # ====================================================================================================
 # Warning + sanitizer + analyzer policy
@@ -269,7 +228,6 @@ target_include_directories(nrfx SYSTEM PUBLIC ${CMSIS_PATH}/CMSIS/Core/Include)
 
 
 
-
 # ====================================================================================================
 # C standard library (default: picolibc)
 # ====================================================================================================
@@ -318,8 +276,17 @@ set_property(TARGET freertos_kernel_port PROPERTY SOURCES "${_frtos_port_sources
 
 # Application samples (selected via -DSAMPLE_DIRECTORY by `west build`).
 add_subdirectory(samples)
+
+# Which library modules the selected sample actually links (used below to
+# pick the linker script for the TrustZone split).
+get_target_property(THESEUS_LINKED_LIBS ${EXECUTABLE_NAME} LINK_LIBRARIES)
+if(NOT THESEUS_LINKED_LIBS)
+    set(THESEUS_LINKED_LIBS "")
+endif()
+
 # Application library (Theseus console/log etc.).
 add_subdirectory(lib)
+
 
 
 # ====================================================================================================
@@ -343,11 +310,10 @@ theseus_mark_third_party(freertos_kernel_port)
 set(CMAKE_C_LINK_GROUP_USING_RESCAN_SUPPORTED TRUE)
 set(CMAKE_C_LINK_GROUP_USING_RESCAN "LINKER:--start-group" "LINKER:--end-group")
 
-if(NOT DEFINED THESEUS_SECURE_APP)
-    set(THESEUS_SECURE_APP OFF)
-endif()
-
-if(THESEUS_SECURE_APP)
+# TrustZone secure/non-secure split: 
+# only nrf_modem_lib needs it (see lib/secure/spu.c),
+# so enable it whenever the sample links that module.
+if(nrf_modem_lib IN_LIST THESEUS_LINKED_LIBS)
     set(APP_LINKER_SCRIPT ${LINKER_SCRIPT_NS})
     target_compile_definitions(${EXECUTABLE_NAME} PUBLIC NRF_TRUSTZONE_NONSECURE=1)
     target_compile_definitions(nrfx PUBLIC NRF_TRUSTZONE_NONSECURE=1)
