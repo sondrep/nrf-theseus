@@ -4,6 +4,7 @@
 typedef int (*theseus_module_callback)(void);
 
 enum theseus_module_stage {
+	THESEUS_MODULE_STAGE_LOG,
 	THESEUS_MODULE_STAGE_EARLY,
 	THESEUS_MODULE_STAGE_INTERMEDIARY,
 	THESEUS_MODULE_STAGE_LATE
@@ -50,7 +51,7 @@ struct theseus_module {
  * @brief Set a module in the thesues modules section.
  *
  * @example
- * THESEUS_MODULE_SET(log) = {.init = theseus_console_init};
+ * THESEUS_MODULE_SET(gpiote) = {.init = theseus_console_init, .stage = THESEUS_MODULE_STAGE_EARLY};
  *
  * @param module_name name of the module that you wish to set.
  */

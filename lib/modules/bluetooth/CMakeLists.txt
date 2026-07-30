@@ -142,11 +142,10 @@ set(SDC_VARIANT central)
 endif()
 
 add_subdirectory(${NRFXLIB_PATH}/softdevice_controller SoftDevice)
-add_subdirectory(${NRFXLIB_PATH}/mpsl MPSL)
 
 target_link_libraries(bluetooth PRIVATE
     tinycrypt
-    mpsl
+    mpsl_lib
     softdevice_controller
     nrfx freertos_config freertos_kernel c rng log
 )

@@ -13,11 +13,20 @@
 #include <theseus/log.h>
 #include <theseus/module.h>
 #include <board.h>
+#include <nrfx_uarte.h>
+#include <nrf.h>
 
 #define CONSOLE_BAUD NRF_UARTE_BAUDRATE_115200
+#define BUF_SIZE     256
 
 SemaphoreHandle_t xPrintMutex;
 static volatile uint8_t tx_byte __attribute__((aligned(4)));
+
+static volatile uint8_t tx_bytes[2][BUF_SIZE];
+static size_t active_buf_index = 0;
+static size_t tx_count;
+static nrfx_uarte_t uart_instance =
+	NRFX_UARTE_INSTANCE(NRF_UARTE_INST_GET(BOARD_CONSOLE_UARTE_INDEX));
 
 /* ---- picolibc per-char hook ------------------------------------------- *
  * Sends one byte and blocks until it is fully shifted out (polled, no IRQ). */
@@ -37,53 +46,60 @@ static int uart_putc(char c, FILE *stream)
 	 * we emit '\r' first and then fall through to send the '\n' below. */
 	if (c == '\n') {
 		tx_byte = (uint8_t)'\r';
-		nrf_uarte_tx_buffer_set(BOARD_CONSOLE_UARTE_INST, (uint8_t const *)&tx_byte, 1);
-		nrf_uarte_event_clear(BOARD_CONSOLE_UARTE_INST, NRF_UARTE_EVENT_ENDTX);
-		nrf_uarte_task_trigger(BOARD_CONSOLE_UARTE_INST, NRF_UARTE_TASK_STARTTX);
-		while (!nrf_uarte_event_check(BOARD_CONSOLE_UARTE_INST, NRF_UARTE_EVENT_ENDTX))
-			;
+		nrfx_uarte_tx(&uart_instance, &tx_byte, sizeof(tx_byte), NRFX_UARTE_TX_BLOCKING);
 	}
 
 	tx_byte = (uint8_t)c;
-	nrf_uarte_tx_buffer_set(BOARD_CONSOLE_UARTE_INST, (uint8_t const *)&tx_byte, 1);
-	nrf_uarte_event_clear(BOARD_CONSOLE_UARTE_INST, NRF_UARTE_EVENT_ENDTX);
-	nrf_uarte_task_trigger(BOARD_CONSOLE_UARTE_INST, NRF_UARTE_TASK_STARTTX);
-	while (!nrf_uarte_event_check(BOARD_CONSOLE_UARTE_INST, NRF_UARTE_EVENT_ENDTX))
-		;
+	nrfx_uarte_tx(&uart_instance, &tx_byte, sizeof(tx_byte), NRFX_UARTE_TX_BLOCKING);
+
+	return 0;
+}
+
+static int flush(FILE *stream)
+{
+	(void)stream;
+	if (!nrfx_uarte_tx_in_progress(&uart_instance)) {
+		nrfx_uarte_tx(&uart_instance, tx_bytes[active_buf_index], tx_count, 0);
+		active_buf_index = (~active_buf_index) & 1;
+		tx_count = 0;
+	}
+	return 0;
+} /*VTASKDELAY*/
+
+static int buf_putc(char c, FILE *stream)
+{
+	/* Change to do while loop instead? */
+	while (tx_count >= sizeof(tx_bytes[active_buf_index]) - 1) {
+		flush(stream);
+	}
+
+	if (c == '\n') {
+		tx_bytes[active_buf_index][tx_count++] = '\r';
+	}
+	tx_bytes[active_buf_index][tx_count++] = c;
 
 	return 0;
 }
 
 /* ---- picolibc stdio streams ------------------------------------------- */
 
-static FILE uart_file = FDEV_SETUP_STREAM(uart_putc, NULL, NULL, _FDEV_SETUP_WRITE);
+static FILE uart_file = FDEV_SETUP_STREAM(buf_putc, NULL, flush, _FDEV_SETUP_WRITE);
 
 FILE *const stdin = NULL;
 FILE *const stdout = &uart_file;
 FILE *const stderr = &uart_file;
 
-/* ---- Public API ------------------------------------------------------- */
-
 static int console_init(void)
 {
-	xPrintMutex = xSemaphoreCreateMutex();
+	xPrintMutex = xSemaphoreCreateBinary();
 	configASSERT(xPrintMutex);
+	xSemaphoreGive(xPrintMutex);
 
-	nrf_gpio_pin_set(BOARD_CONSOLE_TX_PIN);
-	nrf_gpio_cfg_output(BOARD_CONSOLE_TX_PIN);
-
-	nrf_uarte_txrx_pins_set(BOARD_CONSOLE_UARTE_INST, BOARD_CONSOLE_TX_PIN,
-				NRF_UARTE_PSEL_DISCONNECTED);
-	nrf_uarte_baudrate_set(BOARD_CONSOLE_UARTE_INST, CONSOLE_BAUD);
-
-	nrf_uarte_config_t cfg = {
-		.hwfc = NRF_UARTE_HWFC_DISABLED,
-		.parity = NRF_UARTE_PARITY_EXCLUDED,
-	};
-	nrf_uarte_configure(BOARD_CONSOLE_UARTE_INST, &cfg);
-	nrf_uarte_enable(BOARD_CONSOLE_UARTE_INST);
+	nrfx_uarte_config_t cfg =
+		NRFX_UARTE_DEFAULT_CONFIG(BOARD_CONSOLE_TX_PIN, BOARD_CONSOLE_RX_PIN);
+	nrfx_uarte_init(&uart_instance, &cfg, NULL);
 
 	return 0;
 }
 
-THESEUS_MODULE_SET(log) = {.init = console_init, .stage = THESEUS_MODULE_STAGE_EARLY};
+THESEUS_MODULE_SET(log) = {.init = console_init, .stage = THESEUS_MODULE_STAGE_LOG};

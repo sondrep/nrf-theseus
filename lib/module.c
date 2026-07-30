@@ -15,7 +15,7 @@ THESEUS_MODULE_STOP_DECLARE
 static int modules_init(void)
 {
 	int ret = 0;
-	for (enum theseus_module_stage stage = THESEUS_MODULE_STAGE_EARLY;
+	for (enum theseus_module_stage stage = THESEUS_MODULE_STAGE_LOG;
 	     stage <= THESEUS_MODULE_STAGE_LATE; ++stage) {
 		const struct theseus_module *a = THESEUS_MODULE_START;
 		const struct theseus_module *b = THESEUS_MODULE_STOP;
