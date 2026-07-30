@@ -34,7 +34,7 @@ endif()
 
 set(CMAKE_C_FLAGS_RELEASE "-O2 -Werror")
 
-set(THESEUS_MODULES bluetooth log rng tinycrypt gpiote nrf_modem_lib zigbee gppi grtc mpsl_lib)
+set(THESEUS_MODULES bluetooth log rng tinycrypt gpiote nrf_modem_lib zigbee gppi grtc mpsl_lib nfc)
 
 foreach(module IN LISTS THESEUS_MODULES)
     add_library(${module} EXCLUDE_FROM_ALL)
@@ -65,6 +65,45 @@ endif()
 project(app LANGUAGES C ASM)
 
 set(EXECUTABLE_NAME ${PROJECT_NAME}.elf)
+
+add_custom_target(flash
+  WORKING_DIRECTORY
+    ${CMAKE_CURRENT_BINARY_DIR}
+  DEPENDS
+    ${EXECUTABLE_NAME}
+  COMMENT
+    "Flash executable"
+  COMMAND
+    nrfutil device program --firmware ${EXECUTABLE_NAME} --options chip_erase_mode=ERASE_NONE,reset=RESET_SYSTEM
+  VERBATIM
+  )
+
+
+add_custom_target(secure_flash
+  WORKING_DIRECTORY
+    ${CMAKE_CURRENT_BINARY_DIR}
+  DEPENDS
+    lib/secure/secure.elf
+    $<TARGET_PROPERTY:flash,WEAK_DEPS> # Weak dependency since it does not matter which is flashed first
+  COMMENT
+    "Flash secure.elf"
+  COMMAND
+    nrfutil device program --firmware lib/secure/secure.elf --options chip_erase_mode=ERASE_NONE,reset=RESET_SYSTEM
+  VERBATIM
+  )
+
+add_custom_target(erase
+  WORKING_DIRECTORY
+    ${CMAKE_CURRENT_BINARY_DIR}
+  COMMENT
+    "erase device"
+  COMMAND
+    nrfutil device erase
+  VERBATIM
+  )
+
+add_dependencies(flash erase)
+add_dependencies(secure_flash erase)
 
 # The MCU startup/system file is the executable's first source.
 add_executable(${EXECUTABLE_NAME})

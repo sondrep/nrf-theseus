@@ -58,7 +58,6 @@ target_link_libraries(zigbee PUBLIC ${NRFXLIB_PATH}/crypto/nrf_oberon/lib/cortex
 target_compile_definitions(zigbee PUBLIC
  LIBZBOSS_CONFIG_FILE=<${ZBOSS_PATH}/include/osif/libzboss_config${ZBOSS_PATH_EXTENSION}.h>)
 file(GLOB_RECURSE ZBOSS_SOURCES "${ZBOSS_PATH}/src/*.c")
-message("zboss sources = ${ZBOSS_SOURCES}")
 list(FILTER ZBOSS_SOURCES EXCLUDE REGEX "${ZBOSS_PATH}/src/zcl/zb_zcl_s_metering.c")
 target_sources(zboss PUBLIC ${ZBOSS_SOURCES})
 #file(GLOB_RECURSE ZBOSS_SOURCES "${ZBOSS_PATH}/src/zcl/*.c")
