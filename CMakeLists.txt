@@ -303,6 +303,8 @@ set(FREERTOS_PORT "GCC_ARM_CM33_SECURE"   CACHE STRING "" FORCE)  # CM33 port
 
 add_subdirectory(${FREERTOS_KERNEL_PATH} FreeRTOS-Kernel EXCLUDE_FROM_ALL)
 
+target_link_libraries(freertos_kernel PRIVATE nrfx)
+
 # The CM33 secure port ships secure_heap.c,
 # which defines its own pvPortMalloc/vPortFree over a small (10 KB) secure-side heap.
 # That clashes with heap_4.c's application pvPortMalloc/ucHeap:
@@ -386,4 +388,4 @@ target_link_libraries(${EXECUTABLE_NAME} PRIVATE
 )
 
 # NimBLE/mynewt code targets C90 for the kernel.
-set_property(TARGET freertos_kernel PROPERTY C_STANDARD 90)
+set_property(TARGET freertos_kernel PROPERTY C_STANDARD 99)

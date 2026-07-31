@@ -3,6 +3,8 @@
  * license and copyright intentionally withheld to promote copying into user code.
  */
 
+#include <nrf.h>
+
 #ifndef PORTMACRO_H
 #define PORTMACRO_H
 
@@ -75,11 +77,13 @@ typedef uint64_t TickType_t;
 /* Disable the interrupts */
 #define portDISABLE_INTERRUPTS()                                                                   \
 	do {                                                                                       \
+		__disable_irq();                                                                   \
 	} while (0)
 
 /* Enable the interrupts */
 #define portENABLE_INTERRUPTS()                                                                    \
 	do {                                                                                       \
+		__enable_irq();                                                                    \
 	} while (0)
 
 extern void vPortEnterCritical(void);
