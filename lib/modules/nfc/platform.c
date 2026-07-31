@@ -5,10 +5,10 @@
  */
 
 #include <errno.h>
+#include <hal/nrf_ficr.h>
 #include <nrfx_clock.h>
 #include <nrfx_nfct.h>
 #include <nrfx_timer.h>
-#include <hal/nrf_ficr.h>
 
 #include <nfc_platform.h>
 
@@ -29,16 +29,16 @@
  * Copied from Zephyr's sys/util_internal.h; it's pure preprocessor with no dependencies.
  * Also add a guard to prevent multiple definitions. */
 #ifndef IS_ENABLED
-#define IS_ENABLED(config_macro)      Z_IS_ENABLED1(config_macro)
-#define Z_IS_ENABLED1(config_macro)   Z_IS_ENABLED2(_XXXX##config_macro)
-#define _XXXX1                        _YYYY,
-#define Z_IS_ENABLED2(one_or_two_args) Z_IS_ENABLED3(one_or_two_args 1, 0)
+#define IS_ENABLED(config_macro)	Z_IS_ENABLED1(config_macro)
+#define Z_IS_ENABLED1(config_macro)	Z_IS_ENABLED2(_XXXX##config_macro)
+#define _XXXX1				_YYYY,
+#define Z_IS_ENABLED2(one_or_two_args)	Z_IS_ENABLED3(one_or_two_args 1, 0)
 #define Z_IS_ENABLED3(ignore, val, ...) val
 #endif /* IS_ENABLED */
 
 #define NFC_T2T_BUFFER_SIZE (IS_ENABLED(CONFIG_NFC_T2T_NRFXLIB) ? NFC_PLATFORM_T2T_BUFFER_SIZE : 0U)
-#define NFC_T4T_BUFFER_SIZE (IS_ENABLED(CONFIG_NFC_T4T_NRFXLIB) ? \
-							    (2 * NFC_PLATFORM_T4T_BUFFER_SIZE) : 0U)
+#define NFC_T4T_BUFFER_SIZE                                                                        \
+	(IS_ENABLED(CONFIG_NFC_T4T_NRFXLIB) ? (2 * NFC_PLATFORM_T4T_BUFFER_SIZE) : 0U)
 
 /* MAX: guard in case a toolchain/nrfx header already defines it */
 #ifndef MAX
@@ -59,12 +59,12 @@ static uint8_t nfc_platform_buffer[NFCT_PLATFORM_BUFFER_SIZE];
 
 #if CONFIG_NFC_T2T_NRFXLIB
 _Static_assert(sizeof(nfc_platform_buffer) >= NFC_T2T_BUFFER_SIZE,
-		      "Minimal buffer size for the NFC T2T operations must be at least 16 bytes");
+	       "Minimal buffer size for the NFC T2T operations must be at least 16 bytes");
 #endif /* CONFIG_NFC_T2T_NRFXLIB */
 
 #if CONFIG_NFC_T4T_NRFXLIB
 _Static_assert(sizeof(nfc_platform_buffer) >= NFC_T4T_BUFFER_SIZE,
-		      "Minimal buffer size for the NFC T4T operations must be at least 518 bytes");
+	       "Minimal buffer size for the NFC T4T operations must be at least 518 bytes");
 #endif /* CONFIG_NFC_T4T_NRFXLIB */
 
 /* NOTE: no NFCT_IRQHandler is defined here on purpose
@@ -110,7 +110,8 @@ int nfc_platform_setup(nfc_lib_cb_resolve_t nfc_lib_cb_resolve, uint8_t *p_irq_p
 	int err;
 
 	if (!nfc_lib_cb_resolve) {
-		LOG("[ERROR] NFC platform init fail: callback resolution function pointer is invalid");
+		LOG("[ERROR] NFC platform init fail: callback resolution function pointer is "
+		    "invalid");
 		return -EFAULT;
 	}
 
@@ -145,7 +146,6 @@ int nfc_platform_setup(nfc_lib_cb_resolve_t nfc_lib_cb_resolve, uint8_t *p_irq_p
 
 	*p_irq_priority = NRFX_NFCT_DEFAULT_CONFIG_IRQ_PRIORITY;
 
-	LOG("[DEBUG] NFC platform initialized");
 	return 0;
 }
 
@@ -158,8 +158,7 @@ static int nfc_platform_tagheaders_get(uint32_t tag_header[3])
 	return 0;
 }
 
-int nfc_platform_nfcid1_default_bytes_get(uint8_t * const buf,
-					  uint32_t        buf_len)
+int nfc_platform_nfcid1_default_bytes_get(uint8_t *const buf, uint32_t buf_len)
 {
 	if (!buf) {
 		return -EINVAL;
@@ -179,20 +178,20 @@ int nfc_platform_nfcid1_default_bytes_get(uint8_t * const buf,
 		return err;
 	}
 
-	buf[0] = (uint8_t) (nfc_tag_header[0] >> 0);
-	buf[1] = (uint8_t) (nfc_tag_header[0] >> 8);
-	buf[2] = (uint8_t) (nfc_tag_header[0] >> 16);
-	buf[3] = (uint8_t) (nfc_tag_header[1] >> 0);
+	buf[0] = (uint8_t)(nfc_tag_header[0] >> 0);
+	buf[1] = (uint8_t)(nfc_tag_header[0] >> 8);
+	buf[2] = (uint8_t)(nfc_tag_header[0] >> 16);
+	buf[3] = (uint8_t)(nfc_tag_header[1] >> 0);
 
 	if (buf_len != NRFX_NFCT_NFCID1_SINGLE_SIZE) {
-		buf[4] = (uint8_t) (nfc_tag_header[1] >> 8);
-		buf[5] = (uint8_t) (nfc_tag_header[1] >> 16);
-		buf[6] = (uint8_t) (nfc_tag_header[1] >> 24);
+		buf[4] = (uint8_t)(nfc_tag_header[1] >> 8);
+		buf[5] = (uint8_t)(nfc_tag_header[1] >> 16);
+		buf[6] = (uint8_t)(nfc_tag_header[1] >> 24);
 
 		if (buf_len == NRFX_NFCT_NFCID1_TRIPLE_SIZE) {
-			buf[7] = (uint8_t) (nfc_tag_header[2] >> 0);
-			buf[8] = (uint8_t) (nfc_tag_header[2] >> 8);
-			buf[9] = (uint8_t) (nfc_tag_header[2] >> 16);
+			buf[7] = (uint8_t)(nfc_tag_header[2] >> 0);
+			buf[8] = (uint8_t)(nfc_tag_header[2] >> 8);
+			buf[9] = (uint8_t)(nfc_tag_header[2] >> 16);
 		}
 		/* Workaround for errata 181 "NFCT: Invalid value in FICR for double-size NFCID1"
 		 * found at the Errata document for your device located at

@@ -990,10 +990,10 @@ static bulb_device_ctx_t dev_ctx;
  */
 #define BULB_INIT_BASIC_PH_ENV ZB_ZCL_BASIC_ENV_UNSPECIFIED
 
-/* LED indicating that light switch successfully joind Zigbee network. */
+/* LED indicating that light bulb successfully joined Zigbee network. */
 #define ZIGBEE_NETWORK_STATE_LED BOARD_PIN_LED_2
 
-/* LED immitaing dimmable light bulb - define for informational
+/* LED imitating dimmable light bulb - define for informational
  * purposes only.
  */
 #define BULB_LED BOARD_PIN_LED_3
@@ -1326,9 +1326,6 @@ int main(void)
 
 	/* Register handler to identify notifications. */
 	ZB_AF_SET_IDENTIFY_NOTIFICATION_HANDLER(DIMMABLE_LIGHT_ENDPOINT, identify_cb);
-
-	/* Initialize ZCL scene table */
-	// zcl_scenes_init();
 
 	/* Start Zigbee default thread */
 	zigbee_enable();

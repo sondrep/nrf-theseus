@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
-#include <zboss_api.h>
 #include "zb_nrf_platform.h"
+#include <zboss_api.h>
 
 #undef ZB_USE_SLEEP
 #ifdef ZB_USE_SLEEP

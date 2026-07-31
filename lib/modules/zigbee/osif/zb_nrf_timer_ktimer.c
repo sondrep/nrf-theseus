@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
-#include <zboss_api.h>
-#include <zb_types.h>
-#include <zb_osif_platform.h>
 #include <FreeRTOS.h>
 #include <task.h>
+#include <zb_osif_platform.h>
+#include <zb_types.h>
+#include <zboss_api.h>
 
 /*
  * Get uptime value in ms.

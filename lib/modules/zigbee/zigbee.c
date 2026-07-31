@@ -1,13 +1,13 @@
 
-#include <nrfx_clock.h>
 #include <assert.h>
-#include <nrf.h>
-#include <theseus/module.h>
-#include <FreeRTOS.h>
-#include <task.h>
-#include <semphr.h>
-#include <core_cm33.h>
 #include <stdio.h>
+#include <FreeRTOS.h>
+#include <core_cm33.h>
+#include <nrf.h>
+#include <nrfx_clock.h>
+#include <semphr.h>
+#include <task.h>
+#include <theseus/module.h>
 
 static void fault_handler_(const char *file, const uint32_t line)
 {

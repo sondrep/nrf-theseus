@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
-#include <zboss_api.h>
 #include <theseus/log.h>
+#include <zboss_api.h>
 
 #if defined ZB_NRF_TRACE
 

@@ -48,10 +48,10 @@
  *    underlying RTC overflow events.
  */
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <FreeRTOS.h>
 #include "timers.h"
+#include <stdbool.h>
+#include <stdint.h>
+#include <FreeRTOS.h>
 #include <nrfx_grtc.h>
 
 static TimerHandle_t lptimer_handle;

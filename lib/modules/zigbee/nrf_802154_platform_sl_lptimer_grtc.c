@@ -4,20 +4,18 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
-#include "platform/nrf_802154_platform_sl_lptimer.h"
 #include "nrf_802154_platform_sl_lptimer_grtc_hw_task.h"
+#include "platform/nrf_802154_platform_sl_lptimer.h"
 
 #include <assert.h>
 
 #include <nrfx_grtc.h>
 
-#include "nrf_802154_sl_config.h"
 #include "nrf_802154_sl_atomics.h"
+#include "nrf_802154_sl_config.h"
 #include "nrf_802154_sl_utils.h"
 #include "timer/nrf_802154_timer_coord.h"
-// #include "nrf_802154_sl_periphs.h"
 
-/* TODO: Check if this is correct, I just guessed */
 #define BIT(n) (1 << n)
 
 static unsigned int m_enabled;
@@ -84,7 +82,6 @@ void nrf_802154_platform_sl_lp_timer_init(void)
 	nrfx_grtc_channel_alloc(&m_callbacks_cc_channel);
 	nrfx_grtc_channel_alloc(&m_hw_task_cc_channel);
 
-	/* TODO: What is this function? Joe? */
 	nrf_802154_platform_sl_lptimer_hw_task_cross_domain_connections_setup(m_hw_task_cc_channel);
 	int_mask = NRFX_GRTC_CONFIG_ALLOWED_CC_CHANNELS_MASK;
 }
@@ -119,7 +116,6 @@ void nrf_802154_platform_sl_lptimer_schedule_at(uint64_t fire_lpticks)
 	/* This function is not required to be reentrant, hence no critical section. */
 	__atomic_test_and_set(&m_enabled, __ATOMIC_SEQ_CST);
 
-	/* TODO: Fix locks */
 	bool key = compare_int_lock(m_callbacks_cc_channel);
 	compare_set_nolocks(m_callbacks_cc_channel, fire_lpticks, timer_compare_handler, NULL);
 	compare_int_unlock(m_callbacks_cc_channel, key);
@@ -129,7 +125,6 @@ void nrf_802154_platform_sl_lptimer_disable(void)
 {
 	__atomic_clear(&m_enabled, __ATOMIC_SEQ_CST);
 
-	/* TODO: Fix locks */
 	bool key = compare_int_lock(m_callbacks_cc_channel);
 	nrfx_grtc_syscounter_cc_disable(m_callbacks_cc_channel);
 	compare_int_unlock(m_callbacks_cc_channel, key);
@@ -204,20 +199,17 @@ nrf_802154_platform_sl_lptimer_hw_task_prepare(uint64_t fire_lpticks, uint32_t p
 
 	m_hw_task_fire_lpticks = fire_lpticks;
 
-	/* TODO: Fix locks */
 	bool key = compare_int_lock(m_hw_task_cc_channel);
 	compare_set_nolocks(m_hw_task_cc_channel, fire_lpticks, NULL, NULL);
 	compare_int_unlock(m_hw_task_cc_channel, key);
 
 	nrf_802154_sl_mcu_critical_enter(mcu_cs_state);
 
-	/* @todo: can this read be done outside of critical section? */
 	syscnt_now = nrfx_grtc_syscounter_get();
 
 	if (syscnt_now + grtc_cc_minimum_margin >= fire_lpticks) {
 		/* it is too late */
 		nrf_802154_platform_sl_lptimer_hw_task_local_domain_connections_clear();
-		/* TODO: Fix locks */
 		bool key = compare_int_lock(m_hw_task_cc_channel);
 		nrfx_grtc_syscounter_cc_disable(m_hw_task_cc_channel);
 		compare_int_unlock(m_hw_task_cc_channel, key);
@@ -241,7 +233,6 @@ nrf_802154_sl_lptimer_platform_result_t nrf_802154_platform_sl_lptimer_hw_task_c
 
 	nrf_802154_platform_sl_lptimer_hw_task_local_domain_connections_clear();
 
-	/* TODO: Fix locks */
 	bool key = compare_int_lock(m_hw_task_cc_channel);
 	nrfx_grtc_syscounter_cc_disable(m_hw_task_cc_channel);
 	compare_int_unlock(m_hw_task_cc_channel, key);

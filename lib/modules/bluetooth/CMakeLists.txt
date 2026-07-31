@@ -2,7 +2,7 @@
 # NimBLE (Bluetooth host/controller)
 # Sources are globbed
 # tests, apps, mesh, audio and the per-driver transport files are excluded, and only the single transport.c shim is kept.
-# Generated syscfg headers come in via NIMBLE_SYSCFG_INCLUDE (set by west).
+# Generated syscfg headers are produced by the nimble_syscfg target (below) into the build dir.
 # ====================================================================================================
 target_sources(bluetooth PRIVATE hci.c)
 
@@ -44,7 +44,7 @@ list(APPEND NIMBLE_SOURCES "${NIMBLE_PATH}/nimble/transport/src/transport.c")
 # NimBLE + mynewt-core are third-party:
 # mark their includes SYSTEM so the headers stay quiet even when our strict hci.c (and the sample mains) pull them in.
 target_include_directories(bluetooth SYSTEM PUBLIC
-    ${CMAKE_BINARY_DIR}/_sysconfig_nimble/bin/targets/nrf54/generated/include # generated syscfg.h (from west)
+    ${CMAKE_BINARY_DIR}/_sysconfig_nimble/bin/targets/nrf54/generated/include # generated syscfg.h (nimble_syscfg target)
     ${NIMBLE_PATH}/porting/nimble/include
     ${NIMBLE_PATH}/porting/npl/freertos/include
     ${NIMBLE_PATH}/include

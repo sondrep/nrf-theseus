@@ -4,16 +4,16 @@
  * timestamping.
  */
 
-#include <stdint.h>
+#include <assert.h>
 #include <stdbool.h>
-#include <nrfx_gppi.h>
-#include <nrfy_grtc.h>
-#include <nrf_grtc.h>
-#include <nrfx_grtc.h>
-#include <nrfx_gppi_d2ppi.h>
+#include <stdint.h>
 #include <nrf.h>
 #include <nrf_dppi.h>
-#include <assert.h>
+#include <nrf_grtc.h>
+#include <nrfx_gppi.h>
+#include <nrfx_gppi_d2ppi.h>
+#include <nrfx_grtc.h>
+#include <nrfy_grtc.h>
 
 #define COUNTER_SPAN                                                                               \
 	(GRTC_SYSCOUNTER_SYSCOUNTERL_VALUE_Msk |                                                   \
