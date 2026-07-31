@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
-#include <zboss_api.h>
+#include <assert.h>
+#include <ocrypto_curve25519.h>
 #include <theseus/rng.h>
 #include <tinycrypt/aes.h>
-#include <ocrypto_curve25519.h>
-#include <assert.h>
+#include <zboss_api.h>
 
 #include "zb_nrf_crypto.h"
 

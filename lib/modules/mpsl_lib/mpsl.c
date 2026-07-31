@@ -68,7 +68,7 @@ static int mpsl_init_(void)
 		mpsl_lp_task, "mpsl_Task", configMINIMAL_STACK_SIZE + 1024, NULL,
 		tskIDLE_PRIORITY + 4,  /* This is max priority (configMAX_PRIORITIES - 1) */
 		&mpsl_lp_task_handle); /* save handle so the ISR can notify it */
-	assert(ok = pdPASS);
+	assert(ok == pdPASS);
 
 	int32_t return_value;
 	return_value = mpsl_init(NULL, SWI03_IRQn, fault_handler_);

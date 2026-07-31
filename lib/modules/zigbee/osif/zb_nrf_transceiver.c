@@ -339,7 +339,6 @@ zb_bool_t zb_trans_transmit(zb_uint8_t wait_type, zb_time_t tx_at, zb_uint8_t *t
 
 	default:
 		LOG("Invalid wait_type: %d\n", wait_type);
-		// ZB_ASSERT(0); // what is this?
 		nrf5_data.state = ZB_RADIO_STATE_RECEIVE;
 		return ZB_FALSE;
 	}
@@ -386,7 +385,6 @@ zb_bool_t zb_trans_rx_pending(void)
 	if (ret == pdTRUE) {
 		return ZB_TRUE;
 	} else {
-		// LOG("zb_trans_rx_pending: nothing in queue.\n");
 		return ZB_FALSE;
 	}
 }

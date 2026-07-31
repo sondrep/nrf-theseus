@@ -38,7 +38,6 @@ static void hfclk_cb(nrfx_clock_xo_event_type_t event)
 static void lfclk_cb(nrfx_clock_lfclk_evt_type_t evt)
 {
 	if (evt == NRFX_CLOCK_LFCLK_EVT_LFCLK_STARTED) {
-		// nrf_802154_clock_lfclk_ready();
 	}
 }
 

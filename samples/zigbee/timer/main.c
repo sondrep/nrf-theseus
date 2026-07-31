@@ -1,10 +1,10 @@
-#include <zb_time.h>
 #include <theseus/log.h>
+#include <zb_time.h>
 
 static void task(void *arg)
 {
 	(void)arg;
-	LOG("This is a Joe Mama sample 2, electric boogaloo\n");
+	LOG("Zigbee timer sample starting\n");
 
 	zb_osif_timer_start();
 

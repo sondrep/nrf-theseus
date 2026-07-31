@@ -1,14 +1,14 @@
-#include <FreeRTOS.h>
-#include <task.h>
 #include <assert.h>
-#include <theseus/log.h>
-#include <nrf_modem.h>
-#include <string.h>
-#include <nrf_socket.h>
-#include <nrf_modem_at.h>
-#include <theseus/modem.h>
 #include <errno.h>
+#include <string.h>
+#include <FreeRTOS.h>
 #include <event_groups.h>
+#include <nrf_modem.h>
+#include <nrf_modem_at.h>
+#include <nrf_socket.h>
+#include <task.h>
+#include <theseus/log.h>
+#include <theseus/modem.h>
 
 #define HOST "duckduckgo.com"
 #define PORT "80"
@@ -50,8 +50,6 @@ static void test_before(void)
 		.ai_socktype = NRF_SOCK_STREAM,
 		.ai_protocol = NRF_IPPROTO_TCP,
 	};
-
-	// mem_check_start();
 
 	err = nrf_getaddrinfo(HOST, PORT, &hints, &ai);
 	if (err != 0) {
@@ -174,9 +172,7 @@ static void http_task(void *param)
 
 int main(void)
 {
-	int ret = 0;
-
-	LOG("This is a joe mama sample\n");
+	LOG("Modem sample starting\n");
 
 	BaseType_t ok = xTaskCreate(http_task, "http", 2048, NULL, tskIDLE_PRIORITY + 2, NULL);
 	assert(ok == pdPASS);
@@ -185,7 +181,7 @@ int main(void)
 	vTaskStartScheduler();
 
 	while (1) {
-		/* Should never reach here unless the scheduler can't start (eks: no heap). */
+		/* Should never reach here unless the scheduler can't start (e.g. no heap). */
 	}
 
 	return 0;

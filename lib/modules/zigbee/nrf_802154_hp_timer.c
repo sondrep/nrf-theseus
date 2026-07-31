@@ -3,12 +3,12 @@
  *
  */
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <nrfx_timer.h>
 #include <assert.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <nrf_802154_sl_periphs.h>
+#include <nrfx_timer.h>
 /**
  * @defgroup nrf_802154_hp_timer High Precision Timer for the 802.15.4 driver
  * @{

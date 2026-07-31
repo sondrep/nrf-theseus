@@ -22,26 +22,28 @@
 #define NVRAM_MAX_WRITE_BLOCK_SIZE 16
 
 #ifdef CONFIG_PARTITION_MANAGER_ENABLED
-#define ZBOSS_NVRAM_PARTITION_SIZE PM_ZBOSS_NVRAM_SIZE
-#define ZBOSS_NVRAM_FLASH_AREA_ID  PM_ZBOSS_NVRAM_ID
+#define ZBOSS_NVRAM_PARTITION_SIZE	   PM_ZBOSS_NVRAM_SIZE
+#define ZBOSS_NVRAM_FLASH_AREA_ID	   PM_ZBOSS_NVRAM_ID
 #define ZBOSS_PRODUCT_CONFIG_FLASH_AREA_ID PM_ZBOSS_PRODUCT_CONFIG_ID
 #else
-#define ZBOSS_NVRAM_PARTITION_SIZE	      PARTITION_SIZE(zboss_nvram)
-#define ZBOSS_NVRAM_FLASH_AREA_ID	      PARTITION_ID(zboss_nvram)
-#define ZBOSS_PRODUCT_CONFIG_FLASH_AREA_ID    PARTITION_ID(zboss_product_config)
+#define ZBOSS_NVRAM_PARTITION_SIZE	   PARTITION_SIZE(zboss_nvram)
+#define ZBOSS_NVRAM_FLASH_AREA_ID	   PARTITION_ID(zboss_nvram)
+#define ZBOSS_PRODUCT_CONFIG_FLASH_AREA_ID PARTITION_ID(zboss_product_config)
 
 BUILD_ASSERT(FIXED_PARTITION_EXISTS(zboss_nvram),
-	     "Devicetree must define fixed partition node zboss_nvram when Partition Manager is disabled.");
+	     "Devicetree must define fixed partition node zboss_nvram when Partition Manager is "
+	     "disabled.");
 #ifdef ZB_PRODUCTION_CONFIG
-BUILD_ASSERT(FIXED_PARTITION_EXISTS(zboss_product_config),
-	     "Devicetree must define fixed partition node zboss_product_config for production config "
-	     "when Partition Manager is disabled.");
+BUILD_ASSERT(
+	FIXED_PARTITION_EXISTS(zboss_product_config),
+	"Devicetree must define fixed partition node zboss_product_config for production config "
+	"when Partition Manager is disabled.");
 #endif
 #endif
 
 /* Size of logical ZBOSS NVRAM page in bytes. */
 #define ZBOSS_NVRAM_PAGE_SIZE (ZBOSS_NVRAM_PARTITION_SIZE / CONFIG_ZIGBEE_NVRAM_PAGE_COUNT)
-#define PHYSICAL_PAGE_SIZE 0x1000
+#define PHYSICAL_PAGE_SIZE    0x1000
 BUILD_ASSERT((ZBOSS_NVRAM_PAGE_SIZE % PHYSICAL_PAGE_SIZE) == 0,
 	     "The size must be a multiply of physical page size.");
 
@@ -91,8 +93,7 @@ static zb_uint32_t get_page_base_offset(int page_num)
 	return (page_num * zb_get_nvram_page_length());
 }
 
-static int nvram_flash_write(const struct flash_area *area, off_t off,
-			     const void *data, size_t len)
+static int nvram_flash_write(const struct flash_area *area, off_t off, const void *data, size_t len)
 {
 	uint32_t write_block = flash_area_align(area);
 	const uint8_t *src = data;
@@ -134,8 +135,7 @@ static int nvram_flash_write(const struct flash_area *area, off_t off,
 	return 0;
 }
 
-zb_ret_t zb_osif_nvram_read(zb_uint8_t page, zb_uint32_t pos, zb_uint8_t *buf,
-			    zb_uint16_t len)
+zb_ret_t zb_osif_nvram_read(zb_uint8_t page, zb_uint32_t pos, zb_uint8_t *buf, zb_uint16_t len)
 {
 	if (page >= zb_get_nvram_page_count()) {
 		return RET_PAGE_NOT_FOUND;
@@ -152,8 +152,7 @@ zb_ret_t zb_osif_nvram_read(zb_uint8_t page, zb_uint32_t pos, zb_uint8_t *buf,
 	if (!len) {
 		return RET_INVALID_PARAMETER_4;
 	}
-	LOG_DBG("Function: %s, page: %d, pos: %d, len: %d",
-		__func__, page, pos, len);
+	LOG_DBG("Function: %s, page: %d, pos: %d, len: %d", __func__, page, pos, len);
 
 	uint32_t flash_addr = get_page_base_offset(page) + pos;
 
@@ -166,8 +165,7 @@ zb_ret_t zb_osif_nvram_read(zb_uint8_t page, zb_uint32_t pos, zb_uint8_t *buf,
 	return RET_OK;
 }
 
-zb_ret_t zb_osif_nvram_write(zb_uint8_t page, zb_uint32_t pos, void *buf,
-			     zb_uint16_t len)
+zb_ret_t zb_osif_nvram_write(zb_uint8_t page, zb_uint32_t pos, void *buf, zb_uint16_t len)
 {
 	uint32_t flash_addr = get_page_base_offset(page) + pos;
 
@@ -191,8 +189,7 @@ zb_ret_t zb_osif_nvram_write(zb_uint8_t page, zb_uint32_t pos, void *buf,
 		return RET_INVALID_PARAMETER_4;
 	}
 
-	LOG_DBG("Function: %s, page: %d, pos: %d, len: %d",
-		__func__, page, pos, len);
+	LOG_DBG("Function: %s, page: %d, pos: %d, len: %d", __func__, page, pos, len);
 
 	int err = nvram_flash_write(fa, flash_addr, buf, len);
 
@@ -230,34 +227,33 @@ void zb_osif_nvram_flush(void)
 	/* empty for synchronous erase and write */
 }
 
-
 #ifdef ZB_PRODUCTION_CONFIG
 
-#define ZB_OSIF_PRODUCTION_CONFIG_MAGIC             { 0xE7, 0x37, 0xDD, 0xF6 }
-#define ZB_OSIF_PRODUCTION_CONFIG_MAGIC_SIZE        4
+#define ZB_OSIF_PRODUCTION_CONFIG_MAGIC                                                            \
+	{                                                                                          \
+		0xE7, 0x37, 0xDD, 0xF6                                                             \
+	}
+#define ZB_OSIF_PRODUCTION_CONFIG_MAGIC_SIZE 4
 
 zb_bool_t zb_osif_prod_cfg_check_presence(void)
 {
-	zb_uint8_t hdr[ZB_OSIF_PRODUCTION_CONFIG_MAGIC_SIZE] =
-		ZB_OSIF_PRODUCTION_CONFIG_MAGIC;
+	zb_uint8_t hdr[ZB_OSIF_PRODUCTION_CONFIG_MAGIC_SIZE] = ZB_OSIF_PRODUCTION_CONFIG_MAGIC;
 	zb_uint8_t buffer[ZB_OSIF_PRODUCTION_CONFIG_MAGIC_SIZE] = {0};
 
-	int err = flash_area_read(fa_pc, 0, buffer,
-				  ZB_OSIF_PRODUCTION_CONFIG_MAGIC_SIZE);
+	int err = flash_area_read(fa_pc, 0, buffer, ZB_OSIF_PRODUCTION_CONFIG_MAGIC_SIZE);
 
 	if (!err) {
-		return ((zb_bool_t) !memcmp(buffer, hdr, sizeof(buffer)));
+		return ((zb_bool_t)!memcmp(buffer, hdr, sizeof(buffer)));
 
 	} else {
 		return ZB_FALSE;
 	}
 }
 
-zb_ret_t zb_osif_prod_cfg_read_header(zb_uint8_t *prod_cfg_hdr,
-				      zb_uint16_t hdr_len)
+zb_ret_t zb_osif_prod_cfg_read_header(zb_uint8_t *prod_cfg_hdr, zb_uint16_t hdr_len)
 {
-	int err = flash_area_read(fa_pc, ZB_OSIF_PRODUCTION_CONFIG_MAGIC_SIZE,
-				  prod_cfg_hdr, hdr_len);
+	int err =
+		flash_area_read(fa_pc, ZB_OSIF_PRODUCTION_CONFIG_MAGIC_SIZE, prod_cfg_hdr, hdr_len);
 
 	if (err) {
 		LOG_ERR("Prod conf header read error: %d", err);
@@ -266,10 +262,7 @@ zb_ret_t zb_osif_prod_cfg_read_header(zb_uint8_t *prod_cfg_hdr,
 	return RET_OK;
 }
 
-
-zb_ret_t zb_osif_prod_cfg_read(zb_uint8_t *buffer,
-			       zb_uint16_t len,
-			       zb_uint16_t offset)
+zb_ret_t zb_osif_prod_cfg_read(zb_uint8_t *buffer, zb_uint16_t len, zb_uint16_t offset)
 {
 	uint32_t pc_offset = ZB_OSIF_PRODUCTION_CONFIG_MAGIC_SIZE + offset;
 	int err = flash_area_read(fa_pc, pc_offset, buffer, len);
@@ -281,6 +274,6 @@ zb_ret_t zb_osif_prod_cfg_read(zb_uint8_t *buffer,
 	return RET_OK;
 }
 
-#endif  /* ZB_PRODUCTION_CONFIG */
+#endif /* ZB_PRODUCTION_CONFIG */
 
-#endif  /* ZB_USE_NVRAM */
+#endif /* ZB_USE_NVRAM */

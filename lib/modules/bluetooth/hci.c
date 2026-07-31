@@ -17,22 +17,22 @@
  * under the License.
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include <string.h>
 #include <assert.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 /* BLE */
 #include <nimble/transport/hci_h4.h>
 
+#include "mpsl.h"
 #include "nimble/ble.h"
 #include "nimble/hci_common.h"
 #include "nimble/nimble_npl.h"
 #include "nimble/nimble_opt.h"
 #include "nimble/transport.h"
 #include "os/os_mbuf.h"
-#include "mpsl.h"
 #include "sdc.h"
 #include "sdc_hci.h"
 #include "sdc_hci_cmd_controller_baseband.h"
@@ -41,10 +41,10 @@
 #include "sdc_hci_cmd_link_control.h"
 #include "sdc_hci_cmd_status_params.h"
 #include "sdc_soc.h"
-#include <theseus/rng.h>
 #include <nrfx.h>
-#include <theseus/log.h>
 #include <nrfx_grtc.h>
+#include <theseus/log.h>
+#include <theseus/rng.h>
 
 #define BIT(n)		   (1UL << (n))
 #define BIT_MASK(n)	   (BIT(n) - 1UL)
@@ -752,8 +752,6 @@ int ble_transport_to_ll_cmd_impl(void *buf)
 #endif
 
 		case BLE_HCI_OCF_LE_RD_SUPP_STATES:
-			/* TODO: undefined reference to sdc_hci_cmd_le_read_supported_states(),
-			 * falls through to the test-command stubs below. */
 
 		case BLE_HCI_OCF_LE_RX_TEST:
 			hci_ev->length = 0;

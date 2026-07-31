@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <FreeRTOS.h>
@@ -11,12 +12,11 @@
 #include <semphr.h>
 #include <task.h>
 #include <theseus/log.h>
-#include <assert.h>
 #include <theseus/module.h>
 // #include <ram_pwrdn.h>
 
-#include <hal/nrf_power.h>
 #include <hal/nrf_ficr.h>
+#include <hal/nrf_power.h>
 #if !NRF_POWER_HAS_RESETREAS
 #include <hal/nrf_reset.h>
 #endif
@@ -24,9 +24,9 @@
 #ifdef CONFIG_ZIGBEE_SHELL
 #include <zigbee/zigbee_shell.h>
 #endif
-#include <zboss_api.h>
-#include "zb_nrf_platform.h"
 #include "zb_nrf_crypto.h"
+#include "zb_nrf_platform.h"
+#include <zboss_api.h>
 
 #ifdef CONFIG_ZIGBEE_LIBRARY_NCP_DEV
 #include <zb_ncp_nrf_platform.h>
@@ -279,7 +279,6 @@ int zigbee_init(void)
 	zigbee_event_semaphore = xSemaphoreCreateBinary();
 	schedule_semaphore = xSemaphoreCreateBinary();
 	xTaskCreate(zb_app_cb_process_schedule, "zigbee work", 1024, NULL, 3, NULL);
-	// k_work_init(&zb_app_cb_work, zb_app_cb_process_schedule);
 
 #if ZB_TRACE_LEVEL
 	/* Set Zigbee stack logging level and traffic dump subsystem. */
@@ -348,10 +347,6 @@ void zigbee_deinit(void)
 	}
 
 	stack_is_started = false;
-	//(void)k_work_cancel(&zb_app_cb_work);
-	// k_msgq_purge(&zb_app_cb_msgq);
-	// k_poll_signal_reset(&zigbee_sig);
-	//(void)atomic_clear((atomic_t *)&zb_app_cb_process_scheduled);
 }
 
 static void zboss_thread(void *arg1)

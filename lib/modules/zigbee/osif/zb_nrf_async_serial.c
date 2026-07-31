@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
-#include <nrfx_uarte.h>
-#include <FreeRTOS.h>
-#include <zboss_api.h>
 #include "zb_nrf_platform.h"
+#include <FreeRTOS.h>
+#include <nrfx_uarte.h>
 #include <semphr.h>
 #include <timers.h>
+#include <zboss_api.h>
 
 #define DEFAULT_SINGLE_PORT_INSTANCE 0
 

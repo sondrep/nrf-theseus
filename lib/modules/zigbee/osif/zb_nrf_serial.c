@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
-#include <zboss_api.h>
 #include "zb_nrf_platform.h"
+#include <zboss_api.h>
 
 /* Forward declarations */
 void zb_osif_serial_logger_init(void);

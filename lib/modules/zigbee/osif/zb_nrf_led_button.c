@@ -4,12 +4,11 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
+#include <zephyr/drivers/pwm.h>
 #include <zephyr/logging/log.h>
 #include <dk_buttons_and_leds.h>
-#include <zephyr/drivers/pwm.h>
-#include <zboss_api.h>
 #include <zb_led_button.h>
-
+#include <zboss_api.h>
 
 #define LED_PWM_PERIOD_US (USEC_PER_SEC / 100U)
 
@@ -33,7 +32,6 @@ static const struct pwm_dt_spec led_pwm3 = LED_PWM_DT_SPEC(3);
 #endif /* CONFIG_ZIGBEE_USE_DIMMABLE_LED */
 
 LOG_MODULE_DECLARE(zboss_osif, CONFIG_ZBOSS_OSIF_LOG_LEVEL);
-
 
 #ifdef CONFIG_ZIGBEE_USE_BUTTONS
 static void button_update_state(zb_uint8_t button_id, zb_bool_t state)
@@ -65,7 +63,6 @@ static void button_handler(uint32_t button_state, uint32_t has_changed)
 	}
 }
 #endif /* CONFIG_ZIGBEE_USE_BUTTONS */
-
 
 #ifdef CONFIG_ZIGBEE_USE_LEDS
 void zb_osif_led_button_init(void)

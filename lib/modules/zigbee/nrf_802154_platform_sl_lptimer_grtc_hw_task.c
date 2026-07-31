@@ -6,13 +6,13 @@
 
 #include "nrf_802154_platform_sl_lptimer_grtc_hw_task.h"
 
+#include <hal/nrf_ppib.h>
 #include <haly/nrfy_dppi.h>
 #include <haly/nrfy_grtc.h>
-#include <hal/nrf_ppib.h>
 #include <nrfx_grtc.h>
 
-#include <platform/nrf_802154_platform_sl_lptimer.h>
 #include <assert.h>
+#include <platform/nrf_802154_platform_sl_lptimer.h>
 
 #if defined(NRF54H_SERIES)
 
@@ -184,7 +184,6 @@ void nrf_802154_platform_sl_lptimer_hw_task_cross_domain_connections_setup(uint3
 
 void nrf_802154_platform_sl_lptimer_hw_task_cross_domain_connections_clear(void)
 {
-	/* @todo: implement */
 }
 
 void nrf_802154_platform_sl_lptimer_hw_task_local_domain_connections_setup(uint32_t dppi_ch,

@@ -1,7 +1,6 @@
-#include <zboss_api.h>
-#include <zboss_api_buf.h>
-#include <zb_transceiver.h>
 #include <theseus/log.h>
+#include <zb_transceiver.h>
+#include <zboss_api.h>
 #include <zboss_api_buf.h>
 
 static void task(void *arg)

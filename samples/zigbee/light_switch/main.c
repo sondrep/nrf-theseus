@@ -1000,7 +1000,7 @@ static void change_panid(zb_uint8_t param)
  * for all network devices before running other samples.
  */
 #define ERASE_PERSISTENT_CONFIG	 ZB_FALSE
-/* LED indicating that light switch successfully joind Zigbee network. */
+/* LED indicating that light switch successfully joined Zigbee network. */
 #define ZIGBEE_NETWORK_STATE_LED BOARD_PIN_LED_2
 /* LED used for device identification. */
 #define IDENTIFY_LED		 ZIGBEE_NETWORK_STATE_LED
